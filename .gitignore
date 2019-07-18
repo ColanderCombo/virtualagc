@@ -17,7 +17,6 @@ Tools/webb2burkey-rope
 VirtualAGC/VirtualAGC
 VirtualAGC/temp
 yaAGC/yaAGC
-yaAGC/core
 yaAGS/yaAGS
 yaLEMAP/SampleCodeAGS.bin
 yaLEMAP/SampleCodeAGS.lst
@@ -81,3 +80,4 @@ yaUplinkBlock1/yaUplinkBlock1
 /test.patterns
 /.gitignore
 .DS_Store
+core
