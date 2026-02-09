@@ -1085,9 +1085,9 @@ class asmParser(Parser):
                         ['L']
                     )
                 self._token('(')
+                self._identifier_()
+                self.add_last_node_to_name('Z')
                 self._token(',')
-                self._arithmeticExpression_()
-                self.add_last_node_to_name('A1')
                 self._token(',')
                 self._arithmeticExpression_()
                 self.add_last_node_to_name('A2')
@@ -1095,7 +1095,7 @@ class asmParser(Parser):
 
                 self._define(
                     [],
-                    ['A1', 'A2', 'L', 'T']
+                    ['A2', 'L', 'T', 'Z']
                 )
             self._error(
                 'expecting one of: '
@@ -1261,9 +1261,31 @@ class asmParser(Parser):
                     [],
                     ['d', 'h', 'l', 't']
                 )
+            with self._option():
+                with self._optional():
+                    self._number_()
+                    self.add_last_node_to_name('d')
+                self._token('Z')
+                self.add_last_node_to_name('t')
+                with self._optional():
+                    self._len_()
+                    self.add_last_node_to_name('l')
+                self._token('(')
+                self._identifier_()
+                self.add_last_node_to_name('z')
+                self._token(',')
+                self._token(',')
+                self._arithmeticExpression_()
+                self.add_last_node_to_name('f')
+                self._token(')')
+
+                self._define(
+                    [],
+                    ['d', 'f', 'l', 't', 'z']
+                )
             self._error(
                 'expecting one of: '
-                "'(' 'A' 'B' 'C' 'X' <number> [0-9]+ [AY]"
+                "'(' 'A' 'B' 'C' 'X' 'Z' <number> [0-9]+ [AY]"
                 '[FHED]'
             )
 

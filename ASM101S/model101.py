@@ -1475,6 +1475,68 @@ def generateObjectCode(source, macros):
                             toMemory(dcBuffer[:dcBufferPtr])
                             continue
                         toMemory(duplicationFactor * 2)
+                    elif suboperandType == "Z":
+                        # ZCons: DC Z(symbol,,flags)
+                        # Format: 4 bytes, fullword-aligned
+                        # Creates an external reference with relocation
+                        commonProcessing(4)
+                        if operation == "DC":
+                            # Get the symbol name from the 'z' field
+                            symbolName = None
+                            flags = 0
+                            if 'z' in suboperand:
+                                symbolName = suboperand['z']
+                                if isinstance(symbolName, list):
+                                    symbolName = symbolName[0] if symbolName else None
+                            if 'f' in suboperand:
+                                flags = evalArithmeticExpression(suboperand['f'], {}, 
+                                                                 properties, symtab,
+                                                                 currentHash())
+                                if flags is None:
+                                    flags = 0
+                            
+                            if symbolName:
+                                # Add to externs if not already declared
+                                if symbolName not in symtab:
+                                    extrns.add(symbolName)
+                                    symtab[symbolName] = {
+                                        "type": "EXTERNAL",
+                                        "value": getHashcode(symbolName)
+                                    }
+                                    rextrns[symtab[symbolName]["value"]] = symbolName
+                                elif symtab[symbolName].get("type") != "EXTERNAL":
+                                    if symbolName not in extrns:
+                                        extrns.add(symbolName)
+                                
+                                if passCount == 3:
+                                    pos1 = sects[sect]["pos1"]
+                                    relocations.append({
+                                        'symbol': symbolName,
+                                        'section': sect,
+                                        'address': pos1,
+                                        'flags': flags,
+                                        'type': 'Z'
+                                    })
+                            
+                            # emit 0x0000, to be filled by linker:
+                            dcBuffer[dcBufferPtr] = 0
+                            dcBufferPtr += 1
+                            dcBuffer[dcBufferPtr] = 0
+                            dcBufferPtr += 1
+                            dcBuffer[dcBufferPtr] = flags & 0xFF
+                            dcBufferPtr += 1
+                            dcBuffer[dcBufferPtr] = 0
+                            dcBufferPtr += 1
+                            
+                            length = dcBufferPtr
+                            while duplicationFactor > 1:
+                                for i in range(length):
+                                    dcBuffer[dcBufferPtr] = dcBuffer[i]
+                                    dcBufferPtr += 1
+                                duplicationFactor -= 1
+                            toMemory(dcBuffer[:dcBufferPtr])
+                            continue
+                        toMemory(duplicationFactor * 4)
                     else:
                         error(properties, 
                               "Unsupported DC/DS type %s" % suboperandType)
