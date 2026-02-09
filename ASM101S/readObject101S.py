@@ -148,7 +148,7 @@ def parsePackedSymbol(packedSymbols, offset):
         elif typ == 0b110:
             symbol["symbolType"] = "RELOCATABLE"
         else:
-            symbol["error"] = "Error: Unknown symbol type %02X" % type
+            symbol["error"] = "Error: Unknown symbol type %02X" % typ
             return None,symbol
     if cluster:
         symbol["cluster"] = True

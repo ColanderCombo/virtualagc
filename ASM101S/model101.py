@@ -269,12 +269,14 @@ entries = set() # For `ENTRY`.
 extrns = set() # For `EXTRN`.
 rextrns = {} # For `EXTRN`
 symtab = {}
+relocations = [] # RLD entries
 metadata = {
     "sects": sects,
     "entries": entries,
     "extrns": extrns,
     "rextrns": rextrns,
     "symtab": symtab,
+    "relocations": relocations,
     "passCount": 0
     }
 '''

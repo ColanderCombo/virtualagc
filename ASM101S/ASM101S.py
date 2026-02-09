@@ -21,6 +21,7 @@ from datetime import datetime
 from fieldParser import *
 from expressions import *
 from readListing import *
+from objectWriter import writeObjectModule
 
 currentDate = datetime.today().strftime('%m/%d/%y')
 svGlobals["_passCount"] = -1
@@ -723,7 +724,7 @@ for parm in sys.argv[1:]:
         if not parm.endswith(".obj"):
             print("Object-code filenames must end in .obj", file=sys.stderr)
             sys.exit(1)
-        objectFileName = parm[8:]
+        objectFileName = parm[9:]
     elif parm.startswith("--sysparm="):
         svGlobals["&SYSPARM"] = parm[10:]
     elif parm.startswith("--tolerable="):
@@ -740,7 +741,7 @@ for parm in sys.argv[1:]:
             sys.exit(1)
         sourceFileNames.append(parm[:-4])
         if objectFileName == None:
-            objectFileName == parm[:-4] + ".obj"
+            objectFileName = parm[:-4] + ".obj"
         readSourceFile(parm, svGlobalLocals, sequenceGlobalLocals, \
                        copy=False, printable=True, depth=0)
         sourceFileCount += 1
@@ -782,6 +783,12 @@ if sourceFileCount == 0:
 #=============================================================================
 # Code generation.
 metadata = generateObjectCode(source, macros)
+
+#=============================================================================
+# Write object file.
+if objectFileName != None:
+    writeObjectModule(objectFileName, metadata, symtab, sects, entries, extrns)
+    print("Output obj: %s" % objectFileName, file=sys.stderr)
 
 #=============================================================================
 # Print an alternate form of the assembly listing when severe-enough errors have
