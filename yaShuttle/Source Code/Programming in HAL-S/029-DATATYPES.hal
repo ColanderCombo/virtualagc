@@ -61,7 +61,8 @@ M    VV = V S;
   WRITE(6) 'V S =', VV;
   
   WRITE(6) ;
-  WRITE(6) 'Stuff related to "HAL/S Programmers Guide", pp. 69-72.';
+C  WRITE(6) 'Stuff related to "HAL/S Programmers Guide", pp. 69-72.';
+  WRITE(6) 'DATATYPES TEST';
   I = 10;
   WRITE(6) 1.5E-2 I, ' (SCALAR times INTEGER, should be 0.15.)';
   S = 1.5;
