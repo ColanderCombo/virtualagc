@@ -207,8 +207,10 @@ The available OPTIONS are:
                 by default. If used, should precede any XPL source files on the
                 command line.
 --output=F      (Default is the base-name of the first XPL source-code file
-                given on the command line.) Name of the folder to store output 
-                files.
+                given on the command line.) Name of the folder to store output
+                files.  ".build" is automatically appended to F.
+--build-dir=D   Like --output, but uses D as the output folder path directly
+                without appending ".build".  Useful for out-of-source builds.
 --merge=F       (Default None.)  Write a file F containing all of the merged XPL
                 source code.  Note that the resulting file is not necessarily a
                 valid XPL file itself, because any file-inclusion directives the
@@ -393,6 +395,8 @@ for parm in sys.argv[1:]:
             sys.exit(1)
     elif parm.startswith("--output="):
         outputFolder = parm[9:] + ".build"
+    elif parm.startswith("--build-dir="):
+        outputFolder = parm[12:]
     elif parm.startswith("--indent="):
         indentationQuantum = " " * int(parm[9:])
     elif parm == "--backtrace":
