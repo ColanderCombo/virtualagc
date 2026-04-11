@@ -33,12 +33,15 @@ from unLitfile import getLiteralsFromFile
 helpMsg = '''
 Usage:
      unHALMAT [OPTIONS] HALMAT_FILE
+     
 The available OPTIONs are:
     --help          Displays this message.
-    --listing2=F    F (default none) is the name of a LISTING2 file as 
-                    produced by the HAL/S compiler when the HALMAT file was
+    --listing2=F    F is the name of a listing file as produced by the HAL/S 
+                    compiler (HALSFC) when the HALMAT file was
                     generated, and if present, is used to display HAL/S source 
-                    code corresponding to HALMAT SMRK instructions.
+                    code corresponding to HALMAT SMRK instructions.  It is 
+                    acceptable for F to be either the PASS 1 report or the 
+                    LISTING2 report.
     --litfile=F     Specify a literal file for displaying values of literals.
                     Requires --memory (see below).
     --memory=F      Specify a memory file for use with --litfile (see above).
@@ -49,21 +52,36 @@ The available OPTIONs are:
     --colorize      Colorize all supplemental information not derived directly 
                     from the HALMAT file being analyzed.  (I.e., all information
                     taken from --listing2, --litfile, --memory, or --common.)
-Note that when compiling with HALSFC, the following conventional filenames are
-appropriate --
-        For unoptimized HALMAT:
-                HALMAT_FILE = halmat.bin
-                --listing2=listing2.txt
-                --litfile=litfile0.bin
-                --memory=COMMON0.out.bin.gz
-                --common=COMMON0.out
-        For optimized HALMAT:
-                HALMAT_FILE = optmat.bin
-                --listing2=listing2.txt
-                --litfile=litfile2.bin
-                --memory=COMMON2.out.bin.gz
-                --common=COMMON3.out
+                    
+Note that if HALMAT_FILE is one of "halmat.bin" or "optmat.bin", then defaults
+appropriate for the file-naming conventions of the HAL/S compiler (HALSFC) will
+be supplied for any missing --listing2, --litfile, --memory, or --common
+options.  If HALMAT_FILE is neither of these, then there are no supplied 
+defaults.
 '''
+
+# Create some sensible defaults.
+argvSkeleton = []
+for parm in sys.argv[1:]:
+    argvSkeleton.append(parm.split("=")[0])
+if "halmat.bin" in argvSkeleton:
+    if "--listing2" not in argvSkeleton:
+        sys.argv.append("--listing2=pass1.rpt")
+    if "--litfile" not in argvSkeleton:
+        sys.argv.append("--litfile=litfile0.bin")
+    if "--memory" not in argvSkeleton:
+        sys.argv.append("--memory=COMMON0.out.bin.gz")
+    if "--common" not in argvSkeleton:
+        sys.argv.append("--common=COMMON0.out")
+elif "optmat.bin" in argvSkeleton:
+    if "--listing2" not in argvSkeleton:
+        sys.argv.append("--listing2=pass1.rpt")
+    if "--litfile" not in argvSkeleton:
+        sys.argv.append("--litfile=litfile2.bin")
+    if "--memory" not in argvSkeleton:
+        sys.argv.append("--memory=COMMON2.out.bin.gz")
+    if "--common" not in argvSkeleton:
+        sys.argv.append("--common=COMMON3.out")
 
 colorize = ""
 uncolorize = ""
@@ -85,10 +103,20 @@ for parm in sys.argv[1:]:
         f = open(n, "r")
         for line in f:
             try:
-                if line[10] != '|' or line[91] != '|':
+                if line[10] == '|' and line[91] == '|':
+                    first = 1
+                    numLeft = 1
+                    numRight = 8
+                    final = 92
+                elif line[13] == '|' and line[115] == '|':
+                    first = 0
+                    numLeft = 6
+                    numRight = 11
+                    final = 116
+                else:
                     continue
-                lineNumber = int(line[1:8].lstrip())
-                line = line[1:91]
+                lineNumber = int(line[numLeft:numRight].lstrip())
+                line = line[first:final]
                 if lineNumber in listing2:
                     listing2[lineNumber].append(line)
                 else:
