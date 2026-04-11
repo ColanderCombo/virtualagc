@@ -611,7 +611,7 @@ def dumbPrintOperands(operands, halmatNumber, parentMnemonic):
                 print("%02X " % o, end = "")
         if operandMnemonic == "  0":
             if parentMnemonic == "PXRC":
-                print(f"  (Final XREC at HALMAT {operand[0]})", end="")
+                print(f"  (Matchin XREC is at HALMAT {operand[0]})", end="")
             elif parentMnemonic == "SMRK":
                 print(f"  (HAL/S statement {operand[0]})", end="")
         elif operandMnemonic == "LIT" and operand[0] < len(literals):
