@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  apollo11:
+    platform: linux/amd64
+    build: .
+    container_name: apollo11-demo
+    ports:
+      - "6080:6080"
+      - "5900:5900"
+    environment:
+      - DISPLAY=:1
+    restart: unless-stopped

@@ -62,10 +62,67 @@ The Virtual AGC software is open source code so that it can be studied or modifi
 
 Virtual AGC is a computer model of the AGC. It does not try to mimic the superficial behavioral characteristics of the AGC, but rather to model the AGC's inner workings. The result is a computer model of the AGC which is itself capable of executing the original Apollo software on (for example) a desktop PC. In computer terms, Virtual AGC is an emulator. Virtual AGC also provides an emulated Abort Guidance System (AGS) and (in the planning stages) an emulated LVDC. Virtual AGC is a catch-all term that comprises all of these.
 
+Virtual AGC can be deployed using Docker, which provides an easy way to run the simulators without installing dependencies on your host system. See the [Docker deployment section](#docker-deployment) below for more information.
+
 The current version of the Virtual AGC software has been designed to work in Linux, in Windows XP/Vista/7, and in Mac OS X 10.3 or later (but 10.5 or later is best). It also works in at least some versions of FreeBSD. However, since I personally work in Linux, I have the most confidence in the Linux version.
 
 You can read about this project in more detail here:
 http://www.ibiblio.org/apollo/index.html
+
+# Docker Deployment
+
+Virtual AGC can be deployed using Docker, which provides an easy way to run the AGC simulator without installing dependencies on your host system. Docker deployments are available in the [Docker subdirectory](Docker/README.md).
+
+## Quick Start
+
+### Using Docker Compose (Recommended)
+
+```bash
+cd Docker
+docker-compose up -d
+```
+
+### Using Docker
+
+```bash
+docker build -t virtualagc .
+docker run -d -p 6080:6080 -p 5900:5900 --name apollo11-demo virtualagc
+```
+
+## Accessing the Interface
+
+Once the container is running, access the VirtualAGC interface through:
+
+1. **Web Browser (noVNC)**: http://localhost:6080/vnc.html
+2. **Direct VNC**: Connect your VNC client to `localhost:5900`
+
+## Ports
+
+| Port | Service | Description |
+|------|---------|-------------|
+| 6080 | noVNC   | Web-based VNC interface (HTML5) |
+| 5900 | VNC     | Direct VNC connection |
+
+## Stopping the Container
+
+```bash
+# With Docker Compose
+docker-compose down
+
+# With Docker
+docker stop apollo11-demo
+docker rm apollo11-demo
+```
+
+## Docker for Development
+
+To use Docker for development, mounting your local source code into the container:
+
+```bash
+docker run -it --rm -v $(pwd):/src virtualagc /bin/bash
+```
+
+For more details, including troubleshooting and technical information, see the [Docker deployment guide](Docker/README.md).
 
 # What this project is not for
 
