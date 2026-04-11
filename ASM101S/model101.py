@@ -261,6 +261,7 @@ def unUsing(using, hashed):
 
 ap101 = True
 system390 = False
+fillPattern = [0x00, 0x00]  # Uninitialized memory fill; set via --fill
 
 from model101tables import *
 
@@ -269,12 +270,14 @@ entries = set() # For `ENTRY`.
 extrns = set() # For `EXTRN`.
 rextrns = {} # For `EXTRN`
 symtab = {}
+relocations = [] # RLD entries
 metadata = {
     "sects": sects,
     "entries": entries,
     "extrns": extrns,
     "rextrns": rextrns,
     "symtab": symtab,
+    "relocations": relocations,
     "passCount": 0
     }
 '''
@@ -725,15 +728,12 @@ def generateObjectCode(source, macros):
     #                   actual bytes to store.
     # Alignment must have been done prior to entry.
     memoryChunkSize = 4096
-    defaultChunk = [0xC9]*memoryChunkSize
-    for i in range(1, memoryChunkSize, 2):
-        defaultChunk[i] = 0xFB
+    defaultChunk = [fillPattern[i & 1] for i in range(memoryChunkSize)]
     def toMemory(bytes, alignment = 1):
         nonlocal collect, asis, compile, properties, name, operation
-        try:
-            pos1 = sects[sect]["pos1"]
-        except: ###DEBUG###TRAP###
-            pass
+        if sect is None or sect not in sects:
+            return
+        pos1 = sects[sect].get("pos1", 0)
         if collect:
             if operation == "DS": ###DEBUG###
                 pass
@@ -994,10 +994,9 @@ def generateObjectCode(source, macros):
                     symtab[sect]["references"] = []
                 symtab[sect]["references"].append(properties["n"])
             continue
-        try: 
-            pos1 = sects[sect]["pos1"]
-        except: ###DEBUG###
-            pass
+        if sect is None or sect not in sects:
+            continue
+        pos1 = sects[sect].get("pos1", 0)
         sects[sect]["pos1"] = pos1 + 4
         symtab[name] = { "section": sect,  "address": pos1,
                          "value": symtab[sect]["value"] + pos1,
@@ -1255,6 +1254,9 @@ def generateObjectCode(source, macros):
             # is really referring to suboperands beyond the first suboperand
             # when a single `DC` or `DS` has multiple suboperands in its 
             # operand.  Regardless, we should align to the halfword now.
+            if sect is None or sect not in sects:
+                error(properties, "Instruction outside of control section (undefined macro '%s'?)" % operation)
+                continue
             sects[sect]["pos1"] += sects[sect]["pos1"] & 1
             
             #******** Process instruction ********
@@ -1297,7 +1299,67 @@ def generateObjectCode(source, macros):
                     except:
                         error(properties, "Suboperand type not specified")
                         continue
-                    if suboperand["l"] == []:
+
+                    # Z type has a different field layout (z/f, not l/v) -
+                    # handle it before common l/v processing.
+                    if suboperandType == "Z":
+                        # ZCons: DC Z(symbol,,flags)
+                        # Format: 4 bytes, fullword-aligned
+                        # Creates an external reference with relocation
+                        commonProcessing(4)
+                        if operation == "DC":
+                            # Get the symbol name from the 'z' field
+                            symbolName = suboperand.get('z')
+                            flags = 0
+                            if 'f' in suboperand and suboperand['f'] is not None:
+                                flags = evalArithmeticExpression(suboperand['f'], {},
+                                                                 properties, symtab,
+                                                                 currentHash())
+                                if flags is None:
+                                    flags = 0
+
+                            if symbolName:
+                                # Add to externs if not already declared
+                                if symbolName not in symtab:
+                                    extrns.add(symbolName)
+                                    symtab[symbolName] = {
+                                        "type": "EXTERNAL",
+                                        "value": getHashcode(symbolName)
+                                    }
+                                    rextrns[symtab[symbolName]["value"]] = symbolName
+                                elif symtab[symbolName].get("type") != "EXTERNAL":
+                                    if symbolName not in extrns:
+                                        extrns.add(symbolName)
+
+                                if passCount == 3:
+                                    pos1 = sects[sect]["pos1"]
+                                    relocations.append({
+                                        'symbol': symbolName,
+                                        'section': sect,
+                                        'address': pos1,
+                                        'flags': flags,
+                                        'type': 'Z'
+                                    })
+
+                            # emit 4 bytes: [0, 0, flags, 0]
+                            # Bytes 0-1: Address (filled by linker)
+                            # Byte 2: Flags
+                            # Byte 3: Reserved
+                            dcBuffer[dcBufferPtr] = 0
+                            dcBufferPtr += 1
+                            dcBuffer[dcBufferPtr] = 0
+                            dcBufferPtr += 1
+                            dcBuffer[dcBufferPtr] = flags & 0xFF
+                            dcBufferPtr += 1
+                            dcBuffer[dcBufferPtr] = 0
+                            dcBufferPtr += 1
+                            toMemory(dcBuffer[:dcBufferPtr])
+                        else:
+                            # DS Z - just reserve 4 bytes
+                            toMemory(duplicationFactor * 4)
+                        continue
+
+                    if suboperand.get("l", []) == []:
                         lengthModifier = None
                     else:
                         lengthModifier = \
@@ -1306,7 +1368,7 @@ def generateObjectCode(source, macros):
                         if lengthModifier == None:
                             error(properties, "Could not evaluate length modifier")
                             continue
-                    astValue = suboperand["v"]
+                    astValue = suboperand.get("v")
                     if suboperandType == "C":
                         commonProcessing(1)
                         
@@ -1461,6 +1523,27 @@ def generateObjectCode(source, macros):
                                 if v == None:
                                     error(properties, "Cannot evaluate Y-type constant")
                                     v = 0
+                                ySect, yOffset = unhash(v)
+                                if ySect is not None and passCount == 3:
+                                    combinedOffset = yOffset + sects.get(ySect, {}).get("offset", 0)
+                                    # Resolve actual CSECT from combined offset
+                                    rldSymbol = ySect
+                                    for sn, sd in sects.items():
+                                        if sd.get("dsect") or "offset" not in sd:
+                                            continue
+                                        so = sd["offset"]
+                                        su = sd["used"] // 2
+                                        if combinedOffset >= so and combinedOffset < so + su and sn != sect:
+                                            rldSymbol = sn
+                                            break
+                                    yAddr = sects[sect]["pos1"] + dcBufferPtr
+                                    relocations.append({
+                                        'symbol': rldSymbol,
+                                        'section': sect,
+                                        'address': yAddr,
+                                        'type': 'Y'
+                                    })
+                                    v = combinedOffset
                                 dcBuffer[dcBufferPtr] = (v >> 8) & 0xFF
                                 dcBufferPtr += 1
                                 dcBuffer[dcBufferPtr] = v & 0xFF
@@ -1541,7 +1624,7 @@ def generateObjectCode(source, macros):
                     dataSize = 4
                 else:
                     dataSize = properties["length"]
-                if operation in operation in argsSRSonly:
+                if operation in argsSRSonly:
                     dataSize = 2
                 ast = properties["ast"]
                 literalAttributes = None
@@ -1809,6 +1892,14 @@ def generateObjectCode(source, macros):
                                                 d1 > -2048 and d1 < 0:
                                             if extrnD2:
                                                 data = generateRS0(properties, operation, r1, 0, 3)
+                                                if passCount == 3:
+                                                    rldAddr = sects[sect]["pos1"] + 2  # byte offset of displacement field
+                                                    relocations.append({
+                                                        'symbol': rextrns[originalD2],
+                                                        'section': sect,
+                                                        'address': rldAddr,
+                                                        'type': 'Y'
+                                                    })
                                             else:
                                                 data = generateRS1(properties, operation, 0, 1, r1, 0x3FF & -d1, 0, ib2)
                                         elif not forceAM0 and \
@@ -1836,12 +1927,37 @@ def generateObjectCode(source, macros):
                                             elif d2 in rextrns:
                                                 b2 = 3
                                                 d0 = 0
+                                                if passCount == 3:
+                                                    rldAddr = sects[sect]["pos1"] + 2  # byte offset of displacement field
+                                                    relocations.append({
+                                                        'symbol': rextrns[d2],
+                                                        'section': sect,
+                                                        'address': rldAddr,
+                                                        'type': 'Y'
+                                                    })
                                             else:
                                                 section, offset = unhash(d2)
                                                 if section in sects and \
                                                         "offset" in sects[section]:
-                                                    d0 = offset # + sects[section]["offset"] - sects[sect]["offset"]
+                                                    d0 = offset + sects[section].get("offset", 0) - sects[sect].get("offset", 0)
                                                     b2 = 3
+                                                    if passCount == 3:
+                                                        rldSymbol = section
+                                                        for sn, sd in sects.items():
+                                                            if sd.get("dsect") or "offset" not in sd:
+                                                                continue
+                                                            so = sd["offset"]
+                                                            su = sd["used"] // 2
+                                                            if d0 >= so and d0 < so + su and sn != sect:
+                                                                rldSymbol = sn
+                                                                break
+                                                        rldAddr = sects[sect]["pos1"] + 2
+                                                        relocations.append({
+                                                            'symbol': rldSymbol,
+                                                            'section': sect,
+                                                            'address': rldAddr,
+                                                            'type': 'Y'
+                                                        })
                                                 if b2 == None:
                                                     error(properties, "Could not interpret operand")
                                                     continue
@@ -2071,7 +2187,7 @@ def generateObjectCode(source, macros):
         pass
     
     # Let's append the literal pools to their CSECTs.
-    fill = [0xC9, 0xFB]
+    fill = list(fillPattern)
     for pool in literalPools:
         if len(pool) == len(emptyPool):
             continue

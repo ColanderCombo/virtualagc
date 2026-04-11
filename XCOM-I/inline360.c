@@ -17,7 +17,8 @@ uint8_t unnormFR[16] = { 0 };  // Tracks whether to unnormalize FR[n].
 uint8_t CC;      // Condition codes.
 int64_t scratch, dummy360; // Holds temporary results of IBM 360 operations.
 double scratchd, dummy360d, epsilon360 = 1.0e-6;
-int32_t address360A, address360B, msw360, lsw360, mask360, i360, i360A;
+int32_t address360A, address360B, mask360, i360, i360A;
+uint32_t msw360, lsw360;
 
 void
 setCC(void) {
@@ -53,9 +54,18 @@ aw(int regnum, uint32_t address) {
   scratchd = FR[regnum];
   scratchd += fromFloatIBM(COREWORD(address), COREWORD(address + 4));
   setCCd();
-  if (modf(scratchd, &dummy360d) <= epsilon360)
+  if (fabs(modf(scratchd, &dummy360d)) <= epsilon360)
     CC = 0;
-  FR[regnum] = scratchd;
+  /*
+   * The real IBM AW instruction adds in unnormalized hex float, which when
+   * used with the FIXER constant (4E000000 00000000) forces mantissa
+   * alignment to characteristic 14, effectively truncating any fractional
+   * part.  We must emulate this truncation so that subsequent instructions
+   * (ADR, SDR) that compare the AW result against the original value can
+   * detect whether the number had a fractional part.  Without this, e.g.
+   * literal 0.5 would be classified as integer by PREP_LITERAL.
+   */
+  FR[regnum] = trunc(scratchd);
   unnormFR[regnum] = 1;
 }
 

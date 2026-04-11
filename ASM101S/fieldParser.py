@@ -239,6 +239,7 @@ dcOperand =
     | [ d+: number ] t+: /[FHED]/ [ l+: len ] v+: quotedFloatList 
     | [ d+: number ] t+: /[AY]/ [ l+: len ] v+: addresses 
     | [ d+: number ] t+: 'A'[ l+: len ] h+: quotedHexString
+    | [ d+: number ] t+: 'Z' '(' z: identifier [ ',' [ arithmeticExpression ] [ ',' f: arithmeticExpression ] ] ')'
     ;
 dsOperands = dsOperand { ',' dsOperand }  ( / / | $ ) ;
 dsOperand = 

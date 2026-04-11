@@ -21,6 +21,7 @@ from datetime import datetime
 from fieldParser import *
 from expressions import *
 from readListing import *
+from objectWriter import writeObjectModule
 
 currentDate = datetime.today().strftime('%m/%d/%y')
 svGlobals["_passCount"] = -1
@@ -723,11 +724,14 @@ for parm in sys.argv[1:]:
         if not parm.endswith(".obj"):
             print("Object-code filenames must end in .obj", file=sys.stderr)
             sys.exit(1)
-        objectFileName = parm[8:]
+        objectFileName = parm[9:]
     elif parm.startswith("--sysparm="):
         svGlobals["&SYSPARM"] = parm[10:]
     elif parm.startswith("--tolerable="):
         tolerableSeverity = int(parm[12:])
+    elif parm.startswith("--fill="):
+        val = int(parm[7:], 16)
+        fillPattern[:] = [(val >> 8) & 0xFF, val & 0xFF]
     elif parm.startswith("--compare="):
         comparisonFile = parm[10:]
         comparisonSects = readListing(comparisonFile)
@@ -740,7 +744,7 @@ for parm in sys.argv[1:]:
             sys.exit(1)
         sourceFileNames.append(parm[:-4])
         if objectFileName == None:
-            objectFileName == parm[:-4] + ".obj"
+            objectFileName = parm[:-4] + ".obj"
         readSourceFile(parm, svGlobalLocals, sequenceGlobalLocals, \
                        copy=False, printable=True, depth=0)
         sourceFileCount += 1
@@ -773,6 +777,8 @@ for parm in sys.argv[1:]:
         print("--compare=F         (Default none.) Specifies the name of an")
         print("                    assembly-listing file whose generated code")
         print("                    is compared to the current assembly.")
+        print("--fill=XXXX         Set the fill pattern for uninitialized")
+        print("                    locations. 0x0000 by default. (alt. 0xc6c6 or 0xc9fb)")
         print()
         sys.exit(1)
     else:
@@ -785,6 +791,12 @@ if sourceFileCount == 0:
 #=============================================================================
 # Code generation.
 metadata = generateObjectCode(source, macros)
+
+#=============================================================================
+# Write object file.
+if objectFileName != None:
+    writeObjectModule(objectFileName, metadata, symtab, sects, entries, extrns)
+    print("Output obj: %s" % objectFileName, file=sys.stderr)
 
 #=============================================================================
 # Print an alternate form of the assembly listing when severe-enough errors have
@@ -1165,14 +1177,10 @@ if comparisonSects != None:
                 continue
             if 0 == (address & 1):
                 c = "H"
-                if memory[address] == 0xC9:
-                    continue
                 if address < len(amemory) and memory[address] == amemory[address]:
                     continue
             else:
                 c = "L"
-                if memory[address] == 0xFB:
-                    continue
                 if address < len(amemory) and memory[address] == amemory[address]:
                     continue
             if not headerShown:

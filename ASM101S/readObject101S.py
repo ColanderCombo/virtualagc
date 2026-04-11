@@ -25,8 +25,9 @@ def bytearrayToInteger(data):
     return i
 
 def isBytearrayBlank(data):
+    # Treat both EBCDIC blanks (0x40) and binary zeros (0x00) as blank
     for b in data:
-        if b != 0x40:
+        if b != 0x40 and b != 0x00:
             return False
     return True
 
@@ -148,7 +149,7 @@ def parsePackedSymbol(packedSymbols, offset):
         elif typ == 0b110:
             symbol["symbolType"] = "RELOCATABLE"
         else:
-            symbol["error"] = "Error: Unknown symbol type %02X" % type
+            symbol["error"] = "Error: Unknown symbol type %02X" % typ
             return None,symbol
     if cluster:
         symbol["cluster"] = True
@@ -175,13 +176,15 @@ def parsePackedSymbol(packedSymbols, offset):
         if getOutaHere(): return None,symbol
         symbol["length"] = bytearrayToInteger(packedSymbols[offset:offset+2]) + 1
         offset += 2
+    elif symbol["dataType"] == "Z":
+        # HAL/S Z-type (0x84) has no length field - it's a 4-byte Z-CON address constant
+        pass
     elif dataType in datatypes:
         if getOutaHere(): return None,symbol
         symbol["length"] = packedSymbols[offset] + 1
         offset += 1
     else:
-        # This is here just to catch the (apparent) AP-101S datatype 0x84, for
-        # which (empirically) there seems to be no length field.
+        # Unknown datatype - skip length field (assume none)
         pass
     if multiplicity:
         if getOutaHere(): return None,symbol
