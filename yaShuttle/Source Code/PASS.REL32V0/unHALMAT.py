@@ -653,9 +653,11 @@ def dumbPrintOperands(operands, halmatNumber, parentMnemonic):
                 typeName = "FIXED"
             elif type == 2:
                 typeName = "BIT"
+                value = "%08X" % value
             else:
-                typeName = "?"
-            print(f"  {colorize}(Literal #{operand[0]}: {typeName} {value}){uncolorize}", end="")
+                typeName = f"{type}"
+                value = "%08X,%08X" % (0xFFFFFFFF&(value>>32)|(0xFFFFFFFF&value))
+            print(f"  {colorize}(Literal #{operand[0]}: Type {typeName}, {value}){uncolorize}", end="")
         elif operandMnemonic == "SYT" and operand[0] < len(symbolTable):
             symbol = symbolTable[operand[0]]
             name = symbol["SYM_NAME"].strip("'")
