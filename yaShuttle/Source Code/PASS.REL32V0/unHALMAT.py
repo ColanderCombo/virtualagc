@@ -623,10 +623,13 @@ if fileLength % 7200 != 0:
     sys.exit(1)
 numRecords = fileLength // 7200
 
-def dumbPrintOperands(operands, halmatNumber, parentMnemonic):
-    for operand in operands:
+def dumbPrintOperands(operands, operandValues, halmatNumber, parentMnemonic):
+    for i in range(len(operands)):
+        operand = operands[i]
+        operandValue = operandValues[i]
         operandMnemonic = ""
         halmatNumber += 1
+        #print(f"  HALMAT #{halmatNumber}\t  | 0x{'%08X' % operandValue}, ", end = "")
         print(f"  HALMAT #{halmatNumber}\t  | ", end = "")
         for i in range(len(operand)):
             o = operand[i]
@@ -683,7 +686,10 @@ def dumbPrintOperands(operands, halmatNumber, parentMnemonic):
         print()
 
 # I don't know if this works for all operands, but ...
+operandRawValue = None
 def parseOperand(operand):
+    global operandRawValue
+    operandRawValue = (operand[0] << 24) | (operand[1] << 16) | (operand[2] << 8) + operand[3]
     field1 = (operand[0] << 8) | operand[1]
     field2 = operand[2];
     field3 = (operand[3] >> 4) & 0xF
@@ -715,9 +721,11 @@ for recordNum in range(numRecords):
         field4 = (w3 >> 1) & 0x07
         field5 = w3 & 1
         operands = []
+        operandValues = []
         for i in range(numberOfOperands):
             wordOffset += 4
             operands.append(parseOperand(data[wordOffset : wordOffset + 4]))
+            operandValues.append(operandRawValue)
             wordNumber += 1
         mnemonic = "?"
         if operatorType in operatorMnemonics:
@@ -732,7 +740,7 @@ for recordNum in range(numRecords):
                                                    operatorType), end = "")
         if mnemonic == "NOP":
             print(f"NOP({numberOfOperands})")
-            dumbPrintOperands(operands, originalWordNumber, mnemonic)
+            dumbPrintOperands(operands, operandValues, originalWordNumber, mnemonic)
         elif mnemonic == "XREC":
             tag = field1
             if tag:
@@ -743,7 +751,7 @@ for recordNum in range(numRecords):
         elif mnemonic in ["SMRK", "IMRK"]:
             print(f"%s({numberOfOperands}) %02X %d %d" % (mnemonic,
                                           field1, field4, field5))
-            dumbPrintOperands(operands, originalWordNumber, mnemonic)
+            dumbPrintOperands(operands, operandValues, originalWordNumber, mnemonic)
             operand = operands[0]
             statementNumber = operand[0]
             if mnemonic == "SMRK" and statementNumber in listing2:
@@ -775,14 +783,14 @@ for recordNum in range(numRecords):
         elif mnemonic == "BFNC":
             print(f"%s({numberOfOperands}) %02X=\"%s\" %d %d" % (mnemonic,
                                           field1, bfncTypes[field1], field4, field5))
-            dumbPrintOperands(operands, originalWordNumber, mnemonic)
+            dumbPrintOperands(operands, operandValues, originalWordNumber, mnemonic)
         elif False and mnemonic == "?":
             cl = (operatorType >> 8) & 0xFF
             print("Unknown Class %d operator type %02X" % \
                   (cl, operatorType & 0xFF))
-            dumbPrintOperands(operands, originalWordNumber, mnemonic)
+            dumbPrintOperands(operands, operandValues, originalWordNumber, mnemonic)
         else:
             print(f"%s({numberOfOperands}) %02X %d %d" % (mnemonic,
                                           field1, field4, field5))
-            dumbPrintOperands(operands, originalWordNumber, mnemonic)
+            dumbPrintOperands(operands, operandValues, originalWordNumber, mnemonic)
         

@@ -9,6 +9,7 @@ Contact:    The Virtual AGC Project (www.ibiblio.org/apollo).
 History:    2023-09-22 RSB  Ported from XPL
             2026-03-18 RSB  Now truncates floating-point to integer for `VALUE`
                             rather than rounding.
+            2026-04-15 RSB  Wasn't detecting fractional parts correctly.
 '''
 
 import math
@@ -83,15 +84,22 @@ def PREP_LITERAL():
         if scratch > 0: # p59_16
             goto = "NOT_EXACT"
             continue
-        g.FR[4] = 0.0 # p59_18
-        g.FR[2] = g.FR[0] # p59_20
-        g.DW[6] = 0 # p59_22, 26, 30, 34
-        g.DW[7] = int(math.trunc(g.FR[0]))
-        g.FR[0] += g.FR[4] # p59_38
-        g.FR[2] -= g.FR[0] # p 59_40
-        if g.FR[2] != 0: # p59_42
-            goto = "NOT_EXACT"
-            continue
+        if False:
+            g.FR[4] = 0.0 # p59_18
+            g.FR[2] = g.FR[0] # p59_20
+            g.DW[6] = 0 # p59_22, 26, 30, 34
+            g.DW[7] = int(math.trunc(g.FR[0]))
+            g.FR[0] += g.FR[4] # p59_38
+            g.FR[2] -= g.FR[0] # p 59_40
+            if g.FR[2] != 0: # p59_42
+                goto = "NOT_EXACT"
+                continue
+        else:
+            g.DW[6] = 0 
+            g.DW[7] = int(math.trunc(g.FR[0]))
+            if abs(g.FR[0]-g.DW[7]) > 1E-10:
+                goto = "NOT_EXACT"
+                continue
         g.VALUE = g.DW[7] # p59_44, 48
     
     #SAVE_NUMBER:    

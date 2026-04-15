@@ -17,6 +17,7 @@
  *              2026-03-08 RSB  Increased PDS buffer size from 672 lines to
  *                              20000 lines.
  *              2026-04-08 RSB  Added `debugX`.
+ *              2026-04-14 RSB  Added "pretty BNF".
  */
 
 #ifndef RUNTIMEC_H
@@ -694,6 +695,13 @@ XPL_COMPILER_VERSION(uint32_t index);
 
 void
 debugInline(int inlineCounter);
+
+#ifdef ALLOW_PRETTY_BNF
+void
+printPrettyBNF(int productionNumber);
+#else
+#define printPrettyBNF(x)
+#endif
 
 extern int traceInlineEnable;
 extern int detailedInlineEnable;

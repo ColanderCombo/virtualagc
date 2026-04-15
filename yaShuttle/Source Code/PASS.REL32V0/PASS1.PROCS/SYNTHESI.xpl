@@ -7,6 +7,7 @@
     Language:   XPL.
     Contact:    The Virtual AGC Project (www.ibiblio.org/apollo).
     History:    2022-12-07 RSB  Suffixed the filename with ".xpl".
+                2026-04-14 RSB  Added call to `printPrettyBNF`.
     Note:       Inline comments beginning with "/*@" were created by the 
                 Virtual AGC Project. Inline comments beginning merely with 
                 "/*" are from the original Space Shuttle development.
@@ -1011,6 +1012,7 @@ SYNTHESIZE:                                                                     
       
   /?V 
   CALL INLINE('productionTrace(getFIXED(mSYNTHESIZExPRODUCTIONuNUMBER));'); 
+  CALL INLINE('printPrettyBNF(getFIXED(mSYNTHESIZExPRODUCTIONuNUMBER));'); 
   ?/
       
 SET_INIT:                                                                       01102200
