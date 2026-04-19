@@ -193,6 +193,10 @@ def checkDelayableErrors(template, nameOfPass, passRptFilename, candidateErrorLi
 defaultSubdirectory = "."
 compilationCount = 0
 skipping = (skipTo != None)
+try:
+    os.mkdir("objects")
+except:
+    pass
 # Return True on success, False on skipped compilation.
 def compile(template):
     global compilationCount, skipping, rsbTrace
@@ -230,7 +234,7 @@ def compile(template):
                 print("%4d: Compiling %s/%s" % \
                       (compilationCount, subfolder, filename))
             command = ["HALSFC", f"{subfolder}/{filename}", "--test", "--force",
-                 f"--parms={parmsFull}"]
+                 f"--parms={parmsFull}", "-o", f"objects/{template['stem']}.obj"]
             if rsbTrace != "":
                 command.append(rsbTrace)
             result = subprocess.run(command, capture_output = True, text = True, check = True)

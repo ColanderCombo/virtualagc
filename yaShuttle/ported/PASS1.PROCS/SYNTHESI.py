@@ -15,6 +15,7 @@ History:    2023-09-12 RSB  Began porting from XPL
                             Imported PREC_SCALE.
             2026-03-11 RSB  Corrected some porting errors in productions 136
                             and 137.
+            2026-04-14 RSB  Added "pretty BNF".
 
 I realized belatedly that the method I use for handling spaghetti code in all
 of the modules so far -- namely, the use of goto_XXXX variables, one for each
@@ -593,6 +594,8 @@ def SYNTHESIZE(PRODUCTION_NUMBER):
     
     if g.rsbTrace:
         g.productionTrace(PRODUCTION_NUMBER)
+    if g.wantPrettyBNF:
+        g.printPrettyBNF(PRODUCTION_NUMBER)
         
     def SET_INIT(A, B, C, D, E):
         # Local Q doesn't need to be persistent

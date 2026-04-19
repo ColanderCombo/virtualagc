@@ -6,6 +6,8 @@
     Language:   XPL.
     Contact:    The Virtual AGC Project (www.ibiblio.org/apollo).
     History:    2023-04-16 RSB  Suffixed the filename with ".xpl".
+                2026-04-08 RSB  Added a conditional INLINE for `debugX` in
+                                `SAVE_LITERAL`.
     Note:       Inline comments beginning with "/*@" were created by the
                 Virtual AGC Project. Inline comments beginning merely with
                 "/*" are from the original Space Shuttle development.
@@ -3275,6 +3277,12 @@ INTEGER_LIT:                                                                    
 SAVE_LITERAL:                                                                   02153500
       PROCEDURE(OP, OPTYPE) BIT(16);                                            02154000
          DECLARE (OP, OPTYPE, PTR) BIT(16);                                     02154500
+/?V
+/* If compiled with HALSFC-PASS2, print a message if --debug=1. */
+CALL INLINE('if (0 != (1 & debugX)) printf("*** Called SAVE_LITERAL(0x%04X, 
+0x%04X) ***", COREHALFWORD(mGENERATExSAVEuLITERALxOP), COREHALFWORD(
+mGENERATExSAVEuLITERALxOPTYPE));');
+?/
          OPTYPE=OPMODE(OPTYPE);                                                 02155500
          FORM(OP)=CHARLIT+OPTYPE;                                               02156000
          CONSTANT_REFS(OPTYPE) = CONSTANT_REFS(OPTYPE) + 1;                     02156100

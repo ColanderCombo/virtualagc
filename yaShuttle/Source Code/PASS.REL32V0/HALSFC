@@ -66,8 +66,15 @@ The available OPTIONS are:
                     Windows, but it can be done on Linux or MacOS as well if
                     the Windows version of HAL/S-FC is installed and if the
                     WINE package is installed for running Windows executables.
+    --debug=X       A debugging-mode flagword to pass directly to the 
+                    HALSFC-XXXX compiler passes.  X is a hexadecimal number
+                    whose present interpretation is:
+                        Bit 0:  PASS2:  Print messages in `SAVE_LITERAL`.
+                        Other:  Ignored.
+    --pretty-bnf    Use improved alternate production trace to "DEBUG `8".
     --rsb-trace=N   Activate my production trace, if available.
-
+    --verbose       Show the command lines for HALSFC-xxx and HAL_S_FC.py.
+    
 '''
 
 # Parse the command line.
@@ -81,6 +88,9 @@ rsbTrace = ""
 objectFilename = None
 oWasLast = False
 extCOMMON = ".out"
+debugX = ''
+prettyBNF = ""
+verbose = False
 if isWindows:
     ext = ".exe"
 for parm in sys.argv[1:]:
@@ -93,6 +103,10 @@ for parm in sys.argv[1:]:
             print("-o followed by a source-code filename rather than an object-code filename")
             sys.exit(1)
         objectFilename = parm
+    elif parm == "--pretty-bnf":
+        prettyBNF = "--pretty-bnf"
+    elif parm == "--verbose":
+        verbose = True
     elif parm == "-o":
         oWasLast = True
     elif parm == "--test":
@@ -105,6 +119,8 @@ for parm in sys.argv[1:]:
         bfs = True
     elif parm == "--exe":
         ext = ".exe"
+    elif parm.startswith("--debug="):
+        debugX = parm
     elif parm.startswith("--rsb-trace="):
         rsbTrace = parm
     elif not parm.startswith("-"):
@@ -143,7 +159,7 @@ filesPorted = ["FILE4.bin", "FILE5.bin",
                "CROSS_REF.json"]
 filesLocal = ["LISTING2p.txt", "vmem.bin", "COMMON1.out", "COMMON2.out",
               "COMMON1.gz", "COMMON3.gz", "COMMON4.gz", 
-              "COMMON3.out", "COMMON4.out", "auxmat.bin", "objcode.bin",
+              "COMMON4.out", "auxmat.bin", "objcode.bin",
               "COMMON1.out.bin.gz", "COMMON3.out.bin.gz", 
               "pass1A.rpt", "pass1pA.rpt", 
               "aux.rpt", "pass3.rpt", "pass4.rpt", "monitor13.parms",
@@ -155,7 +171,8 @@ filesPreserve = ["litfile.bin", "cards", "COMMON0.out", "COMMON0.out.bin.gz",
                  "TEMPLIBB.json", "TEMPLIBB", "pass1.rpt", "pass1p.rpt", 
                  "opt.rpt", "pass2.rpt", "cards.bin", "listing2.txt", 
                  "optmat.bin", "halmat.bin", "FILE3.bin", "icfile.bin",
-                 "auxp.rpt", "flo.rpt", "COMMON4.out.bin.gz", "litfile4.bin"]
+                 "auxp.rpt", "flo.rpt", "COMMON4.out.bin.gz", "litfile4.bin",
+                 "COMMON3.out"]
 for f in filesPorted+filesLocal+filesPreserve:
     if f.startswith("TEMPLIB"):
         continue
@@ -259,27 +276,33 @@ ERRORLIB = appDir + os.sep + "ERRORLIB"
 parmList = parmString.split(",")
 
 # Run PASS1.
-command ='''%s 
-    --parm="%s" 
-    --ddi=0,"%s" 
-    --ddo=2,listing2.txt 
-    --pdsi=4,%s,E 
-    --pdsi=5,"%s" 
-    --pdsi=6,ACCESS  
-    --pdso=6,%s,E 
-    --pdsi=8,%s,E
-    --pdso=8,"%s",E
-    --pdsi=9,"%s",E
-    --commono=COMMON0%s 
-    --raf=O,7200,1,halmat.bin 
-    --raf=B,1560,2,litfile.bin 
-    --raf=B,1600,3,icfile.bin
-    --raf=B,3360,6,vmem.bin 
-    %s
-    >pass1.rpt''' % (PASS1, parmString, halsFile, TEMPLIB, ERRORLIB, TEMPLIB, 
-                     INCLIB, INCLIB2, INCLIB2, extCOMMON, rsbTrace)
+command ='''%s
+ --parm="%s"
+ --ddi=0,"%s"
+ --ddo=2,listing2.txt
+ --pdsi=4,%s,E
+ --pdsi=5,"%s"
+ --pdsi=6,ACCESS
+ --pdso=6,%s,E
+ --pdsi=8,%s,E
+ --pdso=8,"%s",E
+ --pdsi=9,"%s",E
+ --commono=COMMON0%s
+ --raf=O,7200,1,halmat.bin
+ --raf=B,1560,2,litfile.bin
+ --raf=B,1600,3,icfile.bi
+ --raf=B,3360,6,vmem.bin
+ %s
+ %s
+ %s
+ >pass1.rpt''' % (PASS1, parmString, halsFile, TEMPLIB, ERRORLIB, TEMPLIB, 
+                 INCLIB, INCLIB2, INCLIB2, extCOMMON, debugX, rsbTrace,
+                 prettyBNF)
 #print(f"Here {command}", file=sys.stderr)
-exitCode = os.system(command.replace("\n", ""))
+command = command.replace("\n", "")
+if verbose:
+    print(command)
+exitCode = os.system(command)
 pendingFailure = None
 if exitCode != 0:
     if test and force:
@@ -310,9 +333,12 @@ if test:
     ported=Path(ported).parent
     if ported == None:
         errorExit("Not available for --test:  HAL_S_FC.py")
-    command = 'python "%s" %s %s %s --templib --hal="%s" >pass1p.rpt' \
-                         % (fullPath, TARGET, parmString.replace(",", " "), rsbTrace, halsFile)
+    command = 'python "%s" %s %s %s %s --templib --hal="%s" >pass1p.rpt' \
+                         % (fullPath, TARGET, parmString.replace(",", " "), 
+                            rsbTrace, prettyBNF, halsFile)
     #print(command)
+    if verbose:
+        print(command)
     exitCode = os.system(command)
     if exitCode:
         if force:
@@ -343,29 +369,34 @@ if pendingFailure != None:
 
 # Run FLO.
 command = '''%s 
-    --commoni=COMMON0%s 
-    --commono=COMMON1%s 
-    --pdsi=5,"%s" 
-    --raf=I,7200,1,halmat.bin 
-    --raf=I,1560,2,litfile.bin 
-    --raf=B,3360,6,vmem.bin 
-    >flo.rpt''' % (FLO, extCOMMON, extCOMMON, ERRORLIB)
+ --commoni=COMMON0%s 
+ --commono=COMMON1%s 
+ --pdsi=5,"%s" 
+ --raf=I,7200,1,halmat.bin 
+ --raf=I,1560,2,litfile.bin 
+ --raf=B,3360,6,vmem.bin 
+ %s
+ >flo.rpt''' % (FLO, extCOMMON, extCOMMON, ERRORLIB, debugX)
 #print(command, file=sys.stderr)
-exitCode = os.system(command.replace("\n", ""))
+command = command.replace("\n", "")
+if verbose:
+    print(command)
+exitCode = os.system(command)
 if exitCode != 0:
     errorExit("Aborted after FLO")
 shutil.copy("litfile.bin", "litfile1.bin")
 
 # Run OPT.
 command = '''%s 
-    --commoni=COMMON1%s 
-    --commono=COMMON2%s 
-    --pdsi=5,"%s" 
-    --raf=I,7200,1,halmat.bin 
-    --raf=B,1560,2,litfile.bin 
-    --raf=O,7200,4,optmat.bin 
-    --raf=B,3360,6,vmem.bin 
-    >opt.rpt''' % (OPT, extCOMMON, extCOMMON, ERRORLIB)
+ --commoni=COMMON1%s 
+ --commono=COMMON2%s 
+ --pdsi=5,"%s" 
+ --raf=I,7200,1,halmat.bin 
+ --raf=B,1560,2,litfile.bin 
+ --raf=O,7200,4,optmat.bin 
+ --raf=B,3360,6,vmem.bin 
+ %s
+ >opt.rpt''' % (OPT, extCOMMON, extCOMMON, ERRORLIB, debugX)
 exitCode = os.system(command.replace("\n", ""))
 if exitCode != 0:
     errorExit("Aborted after OPT")
@@ -373,34 +404,42 @@ shutil.copy("litfile.bin", "litfile2.bin")
 
 # Run AUX.
 command = '''%s 
-    --commoni=COMMON2%s 
-    --commono=COMMON3%s 
-    --pdsi=5,"%s" 
-    --raf=O,7200,1,auxmat.bin 
-    --raf=I,1560,2,litfile.bin 
-    --raf=I,7200,4,optmat.bin 
-    --raf=B,3360,6,vmem.bin 
-    >auxp.rpt''' % (AUXP, extCOMMON, extCOMMON, ERRORLIB)
-exitCode = os.system(command.replace("\n", ""))
+ --commoni=COMMON2%s 
+ --commono=COMMON3%s 
+ --pdsi=5,"%s" 
+ --raf=O,7200,1,auxmat.bin 
+ --raf=I,1560,2,litfile.bin 
+ --raf=I,7200,4,optmat.bin 
+ --raf=B,3360,6,vmem.bin 
+ %s
+ >auxp.rpt''' % (AUXP, extCOMMON, extCOMMON, ERRORLIB, debugX)
+command = command.replace("\n", "")
+if verbose:
+    print(command)
+exitCode = os.system(command)
 if exitCode != 0:
     errorExit("Aborted after AUX")
 shutil.copy("litfile.bin", "litfile3.bin")
 
 # Run PASS2
 command = '''%s 
-    %s 
-    --ddo=4,deck.bin,E 
-    --pdsi=5,"%s" 
-    --ddo=7,extra.txt 
-    --commoni=COMMON3%s 
-    --commono=COMMON4%s 
-    --raf=I,7200,1,auxmat.bin 
-    --raf=B,1560,2,litfile.bin 
-    --raf=B,1600,3,objcode.bin 
-    --raf=I,7200,4,optmat.bin 
-    --raf=B,3360,6,vmem.bin 
-    >pass2.rpt''' % (PASS2, CARDS, ERRORLIB, extCOMMON, extCOMMON)
-exitCode = os.system(command.replace("\n", ""))
+ %s 
+ --ddo=4,deck.bin,E 
+ --pdsi=5,"%s" 
+ --ddo=7,extra.txt 
+ --commoni=COMMON3%s 
+ --commono=COMMON4%s 
+ --raf=I,7200,1,auxmat.bin 
+ --raf=B,1560,2,litfile.bin 
+ --raf=B,1600,3,objcode.bin 
+ --raf=I,7200,4,optmat.bin 
+ --raf=B,3360,6,vmem.bin 
+ %s
+ >pass2.rpt''' % (PASS2, CARDS, ERRORLIB, extCOMMON, extCOMMON, debugX)
+command = command.replace("\n", "")
+if verbose:
+    print(command)
+exitCode = os.system(command)
 if exitCode != 0:
     errorExit("Aborted after PASS2")
 shutil.copy("litfile.bin", "litfile4.bin")
