@@ -70,7 +70,7 @@
  * 				but won't be sure until I can assembly the actual
  * 				Aurora.
  * 		2016-10-05 JL	Added -syntax switch. This just checks the syntax
- * 				and does not attempt symbol resolution. This is intended for 
+ * 				and does not attempt symbol resolution. This is intended for
  * 				proofing.
  * 		2016-10-20 RSB  Restored the TC SELF exception for --blk2 bugger-word
  * 		                processing, which I had added above and then removed.
@@ -140,7 +140,7 @@ Line_t toYulOnlyLogSection;
 int syntaxOnly = 0;
 int Force = 0;
 char *InputFilename = NULL, *OutputFilename = NULL;
-//FILE *InputFile = NULL;
+FILE *InputFile = NULL;
 FILE *OutputFile = NULL;
 static int NoChecksums = 0;
 static int Parity = 0;
@@ -317,12 +317,12 @@ main(int argc, char *argv[])
               goto Done;
             }
           sprintf(OutputFilename, "%s.bin", InputFilename);
-          //InputFile = fopen (InputFilename, "r");
-          //if (InputFile == NULL)
-          //  {
-          //    printf ("Input file does not exist.\n");
-          //    goto Done;
-          //  }
+          InputFile = fopen (InputFilename, "r");
+          if (InputFile == NULL)
+            {
+              printf ("Input file does not exist.\n");
+              goto Done;
+            }
           OutputFile = fopen(OutputFilename, "wb");
           if (OutputFile == NULL)
             {
@@ -598,8 +598,8 @@ main(int argc, char *argv[])
   // All done!
   RetVal = 0;
   Done:
-  //if (InputFile != NULL)
-  //  fclose (InputFile);
+  if (InputFile != NULL)
+    fclose (InputFile);
   if (OutputFile != NULL)
     fclose(OutputFile);
   HtmlClose();
@@ -716,4 +716,3 @@ main(int argc, char *argv[])
   else
     return (RetVal);
 }
-
