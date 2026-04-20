@@ -289,3 +289,4 @@ http://www.ibiblio.org/apollo/index.html
 
 项目网站由 Ronald Burkey 创建。  
 README 初版由 Shane Coughlan 整理。
+README 由 XuYuan Wang 翻译
