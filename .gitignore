@@ -9,6 +9,7 @@
 *.symerr
 *.symtab
 .DS_Store
+.idea
 /.cproject
 /.gitignore
 /.pydevproject
