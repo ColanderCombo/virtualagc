@@ -211,8 +211,8 @@ int
 main(int argc, char *argv[])
 {
   int MaxPasses = 10;
-  int RetVal = 1, i, j, k, LastUnresolved, Fatals = 0, Warnings = 0,
-      DuplicatedSymbols;
+  int RetVal = 1, ShowUsage = 0, i, j, k, LastUnresolved, Fatals = 0,
+      Warnings = 0, DuplicatedSymbols;
   extern int UnpoundPage;
 
   // JMS: OutputSymbols = 1 to output a symbol table to SymbolFile.
@@ -224,11 +224,14 @@ main(int argc, char *argv[])
   for (i = 1; i < argc; i++)
     {
       if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "/?"))
-        goto Done;
+        {
+          ShowUsage = 1;
+          goto Done;
+        }
       else if (!strcmp(argv[i], "--reconstruction"))
         reconstructionComments = 1;
       else if (1 == sscanf(argv[i], "--debug=%d", &j))
-	debugLevel = j;
+        debugLevel = j;
       else if (1 == sscanf(argv[i], "--max-passes=%d", &j))
         MaxPasses = j;
       else if (!strcmp(argv[i], "--pos-checksums"))
@@ -301,10 +304,11 @@ main(int argc, char *argv[])
           toYulOnlySequenceNumber = j;
         }
       else if (!strcmp(argv[i], "--simulation"))
-	Simulation = 1;
+        Simulation = 1;
       else if (*argv[i] == '-' || *argv[i] == '/')
         {
           printf("Unknown switch \"%s\".\n", argv[i]);
+          ShowUsage = 1;
           goto Done;
         }
       else if (InputFilename == NULL)
@@ -323,6 +327,7 @@ main(int argc, char *argv[])
               printf ("Input file does not exist.\n");
               goto Done;
             }
+          fclose (InputFile);
           OutputFile = fopen(OutputFilename, "wb");
           if (OutputFile == NULL)
             {
@@ -334,6 +339,7 @@ main(int argc, char *argv[])
       else
         {
           printf("Two input files defined.\n");
+          ShowUsage = 1;
           goto Done;
         }
     }
@@ -348,10 +354,13 @@ main(int argc, char *argv[])
   ", built " __DATE__ ", target %s\n", assemblyTarget);
   printf("(c)2026 Ronald S. Burkey\n");
   printf(
-      "Refer to http://www.ibiblio.org/apollo/index.html for more information.\n");
+      "Refer to https://www.ibiblio.org/apollo/index.html for more information.\n");
 
   if (InputFilename == NULL || OutputFile == NULL)
-    goto Done;
+    {
+      ShowUsage = 1;
+      goto Done;
+    }
   if (Html)
     {
       if (HtmlCreate(InputFilename))
@@ -437,7 +446,7 @@ main(int argc, char *argv[])
         }
       if ((k == 0 || k >= LastUnresolved) && numSymbolsReassigned == 0)
         {
-	  debugPass++;
+          debugPass++;
           printf("Pass #%d\n", i + 1);
           Pass(1, InputFilename, OutputFile, &Fatals, &Warnings);
           break;
@@ -598,14 +607,12 @@ main(int argc, char *argv[])
   // All done!
   RetVal = 0;
   Done:
-  if (InputFile != NULL)
-    fclose (InputFile);
   if (OutputFile != NULL)
     fclose(OutputFile);
   HtmlClose();
-  if (RetVal)
+  if (ShowUsage)
     {
-      printf("USAGE:\n"
+      printf("ShowUsage:\n"
           "\tyaYUL [OPTIONS] InputFile\n"
           "The output (binary executable) always has the same name\n"
           "as the assembly-language input file, except that .bin is \n"
