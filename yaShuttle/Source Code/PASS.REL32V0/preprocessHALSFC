@@ -1,0 +1,180 @@
+#!/usr/bin/env python
+'''
+License:    Public Domain, free to use, modify, and distribute
+Filename:   preprocessHALSFC
+Purpose:    The purpose of this program is to preprocess a HAL/S source-code 
+            file before that file is fed into HALSFC or HAL_S_FC.py (or I 
+            suppose, HAL/S-FC, if HAL/S-FC still existed and were capable of 
+            receiving source-code files not encoded in EBCDIC).
+Contact:    Ron Burkey <info@sandroid.org>
+History:    2026-04-22 RSB  Created.
+
+Potentially, there are several problems that could be addressed.
+
+The DI11 Problem
+----------------
+
+This is discussed in a length manner in GitHub issue #1280.  The executive
+summary is this:  Compiler directives of the form `D INCLUDE TEMPLATE name`
+act essentially like the C language `#INCLUDE "name.h"`, but with several 
+horrible deficiencies relative to the C approach:
+    1.  Templates included by a template are not thereby included in the top-
+        level file by the HAL/S compiler.  In other words, every time a template
+        is included, all of the templates the template includes must also 
+        *explicitly* be included by the source code as well, or else DI11 errors
+        (undefined identifier) will be triggered.
+    2.  There is no mechanism provided by the HAL/S compiler for dealing with
+        multiple inclusions of the same template.  If multiple inclusions do
+        occur, then PM2 errors (multiply-defined identifier, see issue #1281) 
+        will be triggered.
+    3.  The template `name` may or may not be identical to the filename 
+        containing the template source code.  Rather, it is a normalized form
+        of the compilation unit (a `PROGRAM`, `PROCEDURE`, `FUNCTION`, or
+        `COMPOOL`) which it contains.  *Anything whatsoever* may be used as the
+        `name` in `D INCLUDE TEMPLATE name`, as long as it normalizes to the
+        same thing, and different inclusions of the same template may very well
+        use different variations as `name`.  (Normalization consists of
+        removal of underscores, and then truncating the result to 6 characters.)
+Unfortunately, in actual PASS source-code files, there are *many* files which
+violate these rules by omitting necessary templates, including the templates
+in the wrong order (i.e., including a template *after* including another 
+template that requires it), or else including the same template multiple times.
+The compiler itself, as I said, has no mechanism whatever for dealing with this,
+as far as I can detect, and instead aborts with DI11 and PM2 errors.  I can 
+only infer that there was a contemporary preprocessor somewhat similar to this
+preprocessorHALSFC that dealt with the problem, but I have never heard of it if
+so.
+
+The DI11 problem is dealt with here as follows:
+    1.  The source-code file is read.
+    2.  Each `D INCLUDE TEMPLATE name` found is processed like so:
+        a)  The `name` is renormalized.
+        b)  If the template for `name` has already been included,then the
+            `D INCLUDE TEMPLATE name` is removed.
+        b)  Otherwise, the template file associated with the renormalized `name`
+            is read, and a list of its own `D INCLUDE TEMPLATE name2` directives
+            is made. *If* the template associated with `name2` has not already
+            been included in the top-level file, a `D INCLUDE TEMPLATE name2`
+            is inserted for it.  This action is recursive, so that if an 
+            included template itself includes a template, then that template
+            is processed as well, and so on.  Unfortunately, the filenames of 
+            the source-code files for the templates also have indeterminate
+            names, and the only guarantee is the the normalized name of the file
+            matches the normalized `name`, so there's no *efficient* way to 
+            find the source-code files.
+
+The principal difficulty is that `D INCLUDE name` is not processed, and it's
+possible for a file included with that kind of directive may hide additional
+horror.
+
+Other Problems
+--------------
+
+TBD
+'''
+
+import sys
+import re
+import os
+from pathlib import Path
+
+helpMsg = '''
+The purpose of this program is to preprocess a HAL/S source-code file before
+that file is fed into HALSFC or HAL_S_FC.py (or I suppose, HAL/S-FC, if 
+HAL/S-FC still existed and were capable of receiving source-code files not
+encoded in EBCDIC).  Preprocessing is optional, but if used, it may reduce or
+eliminate compile-time DI11 and PM2 errors.  Usage:
+
+    preprocessHALSFC [--in=INPUT.hal] [--out=OUTPUT.hal]
+
+The defaults are stdin and stdout.
+'''
+inFilename = None
+outFilename = None
+for parm in sys.argv[1:]:
+    if parm.startswith("--in="):
+        inFilename = parm[5:]
+    elif parm.startswith("--out="):
+        outFilename = parm[6:]
+    elif parm == "--help":
+        print(helpMsg);
+        sys.exit(0)
+    else:
+        print("Unrecognized option", parm)
+        sys.exit(1)
+if outFilename == None:
+    outFile = sys.stdout
+else:
+    outFile = open(outFilename, "w")
+
+pattern = re.compile(r"^D\s*INCLUDE\s+TEMPLATE\s+([#_0-9A-Z]+)(.*)")
+pattern2 = re.compile(r"^D\s*INCLUDE\s+([#_0-9A-Z]+)(.*)")
+
+includedSoFar = []
+
+def renormalize(name):
+    return name.replace("_", "")[:6]
+
+def renormalize2(name):
+    return name.replace("_", "")[:8]
+
+# Get all candidate HAL/S source-code paths vs renormalized names.
+candidates = {}
+for dir in ["APPLSRC", "SSSRC"]:
+    for path in Path(dir).rglob('*.hal'):
+        candidates[renormalize(path.stem)] = str(path)
+for dir in ["INCL80"]:
+    for path in Path(dir).rglob('*.hal'):
+        candidates[renormalize2(path.stem)] = str(path)
+
+comment = " ; Inserted by preprocessor"
+def processFile(basename=None, top=False):
+    if basename == None:
+        f = sys.stdin
+    else:
+        if basename in candidates:
+            f = open(candidates[basename], "r")
+        else:
+            # Not a base name, so assume it's a full path.
+            try:
+                f = open(basename, "r")
+            except:
+                print(f"Selected file {basename} does not exist")
+                os._exit(1)
+    
+    for line in f:
+        line = line.rstrip()
+        match = pattern.match(line[:72])
+        if match:
+            subname = match.group(1)
+            subclauses = match.group(2).rstrip()
+            renormalized = renormalize(subname)
+            processFile(renormalized)
+            if renormalized not in includedSoFar:
+                includedSoFar.append(renormalized)
+                if top:
+                    print(line, file=outFile)
+                else:
+                    if "NOLIST" not in subclauses:
+                        subclauses += " NOLIST"
+                    subclauses += comment
+                    print(f"D INCLUDE TEMPLATE {renormalized}{subclauses}", 
+                          file=outFile)
+            elif top:
+                print("C/ Removed by preprocessor")
+                print("C" + line[1:], file=outFile)
+            continue
+        if False:
+            match = pattern2.match(line[:72])
+            if match and match.group(1) != "SDF":
+                subname = match.group(1)
+                subclauses = match.group(2).rstrip()
+                renormalized = renormalize2(subname)
+                processFile(renormalized)
+        if top:
+            print(line, file=outFile)
+   
+    if basename != None:
+        f.close()
+
+processFile(inFilename, True)
