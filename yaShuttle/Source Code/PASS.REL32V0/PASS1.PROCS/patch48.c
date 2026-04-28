@@ -24,9 +24,7 @@ p48_4: ;
   // (49)       CALL INLINE("2B",0,0);                                /* SDR  0,0      */ 
   // Type RR, p. 18-23:		SDR	0,0
   detailedInlineBefore(49, "SDR	0,0");
-  scratchd = FR[0] - FR[0];
-  setCCd();
-  FR[0] = scratchd;
+  sdr(0, 0);
   detailedInlineAfter();
 
 p48_6: ;
@@ -34,10 +32,7 @@ p48_6: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-8:		AD	0,0(0,1)
   detailedInlineBefore(50, "AD	0,0(0,1)");
-  scratchd = FR[0];
-  scratchd += fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
-  FR[0] = scratchd;
+  ad(0, address360B);
   detailedInlineAfter();
 
 p48_10: ;

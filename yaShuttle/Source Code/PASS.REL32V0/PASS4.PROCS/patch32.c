@@ -51,7 +51,7 @@ p32_16: ;
   address360B = (GR[1] + 8) & 0xFFFFFF;
   // Type RX, p. 9-11:		STE	2,8(0,1)
   detailedInlineBefore(36, "STE	2,8(0,1)");
-  toFloatIBM(&msw360, &lsw360, FR[2]);
+  msw360 = FR_msw(2); lsw360 = FR_lsw(2);
   COREWORD2(address360B, msw360);
   detailedInlineAfter();
 

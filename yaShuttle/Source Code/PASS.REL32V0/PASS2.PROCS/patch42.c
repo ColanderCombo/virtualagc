@@ -18,18 +18,14 @@ p42_0: ;
   // (42)          CALL INLINE("2B", 2, 2);                              /* SDR 2,2 */    
   // Type RR, p. 18-23:		SDR	2,2
   detailedInlineBefore(42, "SDR	2,2");
-  scratchd = FR[2] - FR[2];
-  setCCd();
-  FR[2] = scratchd;
+  sdr(2, 2);
   detailedInlineAfter();
 
 p42_2: ;
   // (43)          CALL INLINE("2A", 0, 2 );                             /* ADR 0,2 */    
   // Type RR, p. 18-8:		ADR	0,2
   detailedInlineBefore(43, "ADR	0,2");
-  scratchd = FR[0] + FR[2];
-  setCCd();
-  FR[0] = scratchd;
+  adr(0, 2);
   detailedInlineAfter();
 
 p42_4: ;
@@ -45,9 +41,7 @@ p42_8: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-10:		CD	0,0(0,1)
   detailedInlineBefore(45, "CD	0,0(0,1)");
-  scratchd = FR[0];
-  scratchd -= fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
+  cd(0, address360B);
   detailedInlineAfter();
 
 p42_12: ;

@@ -25,16 +25,14 @@ p86_4: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 9-10:		LD	0,0(0,1)
   detailedInlineBefore(87, "LD	0,0(0,1)");
-  FR[0] = fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
+  ld(0, address360B);
   detailedInlineAfter();
 
 p86_8: ;
   // (88)       CALL INLINE("20",0,0);                     /* LPDR 0,0        */          
   // Type RR, p. 18-17:		LPDR	0,0
   detailedInlineBefore(88, "LPDR	0,0");
-  scratchd = fabs(FR[0]);
-  setCCd();
-  FR[0] = scratchd;
+  lpdr(0, 0);
   detailedInlineAfter();
 
 p86_10: ;
@@ -50,10 +48,7 @@ p86_14: ;
   address360B = (GR[2] + 0) & 0xFFFFFF;
   // Type RX, p. 18-23:		SD	0,0(0,2)
   detailedInlineBefore(90, "SD	0,0(0,2)");
-  scratchd = FR[0];
-  scratchd -= fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
-  FR[0] = scratchd;
+  sd(0, address360B);
   detailedInlineAfter();
 
 p86_18: ;

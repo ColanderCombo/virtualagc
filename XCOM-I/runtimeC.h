@@ -498,11 +498,8 @@ MONITOR7(uint32_t based, uint32_t n);
 void
 MONITOR8(uint32_t dev, uint32_t filenum);
 
-void
-toFloatIBM(uint32_t *msw, uint32_t *lsw, double d);
-
-double
-fromFloatIBM(uint32_t msw, uint32_t lsw);
+// IBM hex DP arithmetic primitives and double/string conversions.
+#include "ibmFloat.h"
 
 uint32_t
 MONITOR9(uint32_t op);

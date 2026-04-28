@@ -18,25 +18,21 @@ p27_0: ;
   // (27)       CALL INLINE("28", 2, 0);                    /* LDR 2,0     */             
   // Type RR, p. 9-10:		LDR	2,0
   detailedInlineBefore(27, "LDR	2,0");
-  FR[2] = FR[0];
+  ldr(2, 0);
   detailedInlineAfter();
 
 p27_2: ;
   // (28)       CALL INLINE("20", 0, 0);                    /* LPDR 0,0    */             
   // Type RR, p. 18-17:		LPDR	0,0
   detailedInlineBefore(28, "LPDR	0,0");
-  scratchd = fabs(FR[0]);
-  setCCd();
-  FR[0] = scratchd;
+  lpdr(0, 0);
   detailedInlineAfter();
 
 p27_4: ;
   // (29)       CALL INLINE("2B", 4, 4);                    /* SDR 4,4     */             
   // Type RR, p. 18-23:		SDR	4,4
   detailedInlineBefore(29, "SDR	4,4");
-  scratchd = FR[4] - FR[4];
-  setCCd();
-  FR[4] = scratchd;
+  sdr(4, 4);
   detailedInlineAfter();
 
 p27_6: ;
@@ -44,7 +40,7 @@ p27_6: ;
   address360B = (mINTEGERIZABLExFLTuNEGMAX) & 0xFFFFFF;
   // Type RX, p. 9-10:		LE	4,mINTEGERIZABLExFLTuNEGMAX(0,0)
   detailedInlineBefore(30, "LE	4,mINTEGERIZABLExFLTuNEGMAX(0,0)");
-  FR[4] = fromFloatIBM(COREWORD(address360B), 0);
+  le(4, address360B);
   detailedInlineAfter();
 
 p27_10: ;
@@ -59,8 +55,7 @@ p27_14: ;
   // (32)       CALL INLINE("29", 4, 2);                    /* CDR 4,2     */             
   // Type RR, p. 18-10:		CDR	4,2
   detailedInlineBefore(32, "CDR	4,2");
-  scratchd = FR[4] - FR[2];
-  setCCd();
+  cdr(4, 2);
   detailedInlineAfter();
 
 p27_16: ;
@@ -90,10 +85,7 @@ p27_22: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-8:		AD	0,0(0,1)
   detailedInlineBefore(35, "AD	0,0(0,1)");
-  scratchd = FR[0];
-  scratchd += fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
-  FR[0] = scratchd;
+  ad(0, address360B);
   detailedInlineAfter();
 
 p27_26: ;
@@ -117,9 +109,7 @@ p27_34: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-10:		CD	0,0(0,1)
   detailedInlineBefore(38, "CD	0,0(0,1)");
-  scratchd = FR[0];
-  scratchd -= fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
+  cd(0, address360B);
   detailedInlineAfter();
 
 p27_38: ;

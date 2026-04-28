@@ -17,25 +17,21 @@ p101_0: ;
   address360B = (GR[3] + 0) & 0xFFFFFF;
   // Type RX, p. 9-10:		LD	4,0(0,3)
   detailedInlineBefore(101, "LD	4,0(0,3)");
-  FR[4] = fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
+  ld(4, address360B);
   detailedInlineAfter();
 
 p101_4: ;
   // (102)             CALL INLINE("20", 4, 4);               /* LPDR 4,4                */
   // Type RR, p. 18-17:		LPDR	4,4
   detailedInlineBefore(102, "LPDR	4,4");
-  scratchd = fabs(FR[4]);
-  setCCd();
-  FR[4] = scratchd;
+  lpdr(4, 4);
   detailedInlineAfter();
 
 p101_6: ;
   // (103)             CALL INLINE("2B", 2, 2);               /* SDR  2,2                */
   // Type RR, p. 18-23:		SDR	2,2
   detailedInlineBefore(103, "SDR	2,2");
-  scratchd = FR[2] - FR[2];
-  setCCd();
-  FR[2] = scratchd;
+  sdr(2, 2);
   detailedInlineAfter();
 
 p101_8: ;
@@ -43,16 +39,14 @@ p101_8: ;
   address360B = (mHALMATuINITuCONSTxROUNDuSCALARxADJuNEG) & 0xFFFFFF;
   // Type RX, p. 9-10:		LE	2,mHALMATuINITuCONSTxROUNDuSCALARxADJuNEG(0,0)
   detailedInlineBefore(104, "LE	2,mHALMATuINITuCONSTxROUNDuSCALARxADJuNEG(0,0)");
-  FR[2] = fromFloatIBM(COREWORD(address360B), 0);
+  le(2, address360B);
   detailedInlineAfter();
 
 p101_12: ;
   // (105)             CALL INLINE("2B", 4, 2);               /* SDR  4,2                */
   // Type RR, p. 18-23:		SDR	4,2
   detailedInlineBefore(105, "SDR	4,2");
-  scratchd = FR[4] - FR[2];
-  setCCd();
-  FR[4] = scratchd;
+  sdr(4, 2);
   detailedInlineAfter();
 
 p101_14: ;
@@ -68,10 +62,7 @@ p101_18: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-8:		AD	4,0(0,1)
   detailedInlineBefore(107, "AD	4,0(0,1)");
-  scratchd = FR[4];
-  scratchd += fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
-  FR[4] = scratchd;
+  ad(4, address360B);
   detailedInlineAfter();
 
 p101_22: ;
@@ -95,9 +86,7 @@ p101_30: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-10:		CD	4,0(0,1)
   detailedInlineBefore(110, "CD	4,0(0,1)");
-  scratchd = FR[4];
-  scratchd -= fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
+  cd(4, address360B);
   detailedInlineAfter();
 
 p101_34: ;

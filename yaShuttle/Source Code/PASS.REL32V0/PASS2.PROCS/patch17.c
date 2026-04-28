@@ -27,7 +27,7 @@ p17_4: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 9-10:		LD	0,0(0,1)
   detailedInlineBefore(18, "LD	0,0(0,1)");
-  FR[0] = fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
+  ld(0, address360B);
   detailedInlineAfter();
 
 p17_8: ;

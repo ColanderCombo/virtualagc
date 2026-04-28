@@ -18,25 +18,21 @@ p19_0: ;
   // (19)          CALL INLINE("28", 2, 0);                    /* LDR 2,0     */          
   // Type RR, p. 9-10:		LDR	2,0
   detailedInlineBefore(19, "LDR	2,0");
-  FR[2] = FR[0];
+  ldr(2, 0);
   detailedInlineAfter();
 
 p19_2: ;
   // (20)          CALL INLINE("20", 0, 0);                    /* LPDR 0,0    */          
   // Type RR, p. 18-17:		LPDR	0,0
   detailedInlineBefore(20, "LPDR	0,0");
-  scratchd = fabs(FR[0]);
-  setCCd();
-  FR[0] = scratchd;
+  lpdr(0, 0);
   detailedInlineAfter();
 
 p19_4: ;
   // (21)          CALL INLINE("2B", 4, 4);                    /* SDR 4,4     */          
   // Type RR, p. 18-23:		SDR	4,4
   detailedInlineBefore(21, "SDR	4,4");
-  scratchd = FR[4] - FR[4];
-  setCCd();
-  FR[4] = scratchd;
+  sdr(4, 4);
   detailedInlineAfter();
 
 p19_6: ;
@@ -44,7 +40,7 @@ p19_6: ;
   address360B = (mDUMPuSDFxINTEGERIZABLExFLTuNEGMAX) & 0xFFFFFF;
   // Type RX, p. 9-10:		LE	4,mDUMPuSDFxINTEGERIZABLExFLTuNEGMAX(0,0)
   detailedInlineBefore(22, "LE	4,mDUMPuSDFxINTEGERIZABLExFLTuNEGMAX(0,0)");
-  FR[4] = fromFloatIBM(COREWORD(address360B), 0);
+  le(4, address360B);
   detailedInlineAfter();
 
 p19_10: ;
@@ -59,8 +55,7 @@ p19_14: ;
   // (24)          CALL INLINE("29", 4, 2);                    /* CDR 4,2     */          
   // Type RR, p. 18-10:		CDR	4,2
   detailedInlineBefore(24, "CDR	4,2");
-  scratchd = FR[4] - FR[2];
-  setCCd();
+  cdr(4, 2);
   detailedInlineAfter();
 
 p19_16: ;
@@ -90,10 +85,7 @@ p19_22: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-8:		AD	0,0(0,1)
   detailedInlineBefore(27, "AD	0,0(0,1)");
-  scratchd = FR[0];
-  scratchd += fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
-  FR[0] = scratchd;
+  ad(0, address360B);
   detailedInlineAfter();
 
 p19_26: ;
@@ -117,9 +109,7 @@ p19_34: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-10:		CD	0,0(0,1)
   detailedInlineBefore(30, "CD	0,0(0,1)");
-  scratchd = FR[0];
-  scratchd -= fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
+  cd(0, address360B);
   detailedInlineAfter();
 
 p19_38: ;

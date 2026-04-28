@@ -36,16 +36,14 @@ p59_8: ;
   // `PREPuLITERAL`!  `PREPuLITERAL` is called from `SCAN`, immediately after
   // `MONITOR(10, INTERNALuBCD)`.  That must leave FR[0] populated as a
   // side-effect.
-  FR[6] = FR[0];
+  ldr(6, 0);
   detailedInlineAfter();
 
 p59_10: ;
   // (62)       CALL INLINE("20", 0, 0);                         /* LPDR 0,0         */   
   // Type RR, p. 18-17:		LPDR	0,0
   detailedInlineBefore(62, "LPDR	0,0");
-  scratchd = fabs(FR[0]);
-  setCCd();
-  FR[0] = scratchd;
+  lpdr(0, 0);
   detailedInlineAfter();
 
 p59_12: ;
@@ -53,9 +51,7 @@ p59_12: ;
   address360B = (GR[1] + 0) & 0xFFFFFF;
   // Type RX, p. 18-10:		CD	0,0(0,1)
   detailedInlineBefore(63, "CD	0,0(0,1)");
-  scratchd = FR[0];
-  scratchd -= fromFloatIBM(COREWORD(address360B), COREWORD(address360B + 4));
-  setCCd();
+  cd(0, address360B);
   detailedInlineAfter();
 
 p59_16: ;
@@ -76,16 +72,14 @@ p59_18: ;
   // (65)       CALL INLINE("2B", 4, 4);                         /* SDR 4,4          */   
   // Type RR, p. 18-23:		SDR	4,4
   detailedInlineBefore(65, "SDR	4,4");
-  scratchd = FR[4] - FR[4];
-  setCCd();
-  FR[4] = scratchd;
+  sdr(4, 4);
   detailedInlineAfter();
 
 p59_20: ;
   // (66)       CALL INLINE("28", 2, 0);                         /* LDR 2,0          */   
   // Type RR, p. 9-10:		LDR	2,0
   detailedInlineBefore(66, "LDR	2,0");
-  FR[2] = FR[0];
+  ldr(2, 0);
   detailedInlineAfter();
 
 p59_22: ;
@@ -124,18 +118,14 @@ p59_38: ;
   // (71)       CALL INLINE("2A", 0, 4);                         /* ADR 0,4          */   
   // Type RR, p. 18-8:		ADR	0,4
   detailedInlineBefore(71, "ADR	0,4");
-  scratchd = FR[0] + FR[4];
-  setCCd();
-  FR[0] = scratchd;
+  adr(0, 4);
   detailedInlineAfter();
 
 p59_40: ;
   // (72)       CALL INLINE("2B", 2, 0);                         /* SDR 2,0          */   
   // Type RR, p. 18-23:		SDR	2,0
   detailedInlineBefore(72, "SDR	2,0");
-  scratchd = FR[2] - FR[0];
-  setCCd();
-  FR[2] = scratchd;
+  sdr(2, 0);
   detailedInlineAfter();
 
 p59_42: ;
