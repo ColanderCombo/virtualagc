@@ -13,6 +13,7 @@
 #ifndef IBM_FLOAT_H
 #define IBM_FLOAT_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <assert.h>
 
@@ -85,6 +86,12 @@ double ibm_dp_to_double(uint32_t msw, uint32_t lsw);
 // Conversion from decimal string:
 //  based on XXXTOD.bal
 void ibm_dp_from_string(const char *s, uint32_t *msw, uint32_t *lsw);
+
+// Conversion to decimal string, direct from the IBM hex DP without
+// going through IEEE754:
+void ibm_dp_to_string(uint32_t msw, uint32_t lsw,
+                      int sig_digits, int pad_to_digits,
+                      char *out, size_t out_len);
 
 uint64_t ibm_dp_add(uint64_t a, uint64_t b);
 uint64_t ibm_dp_sub(uint64_t a, uint64_t b);

@@ -12,7 +12,8 @@
 
 #include <assert.h>
 #include <math.h>
-#include <stddef.h>  // NULL
+#include <stddef.h>
+#include <stdio.h>
 #include "ibmFloat.h"
 
 #define twoTo56 (1LL << IBM_DP_MANT_BITS)
@@ -381,5 +382,121 @@ ibm_dp_div(uint64_t a, uint64_t b) {
     if (r_exp < 0) return 0;
     if (r_exp > IBM_DP_EXP_MAX) return IBM_DP_OVERFLOW_PACKED;
     return IBM_DP_PACK(r_sign, r_exp, r_mant);
+}
+
+// data from TENSTBL.bal, used by XXDTOC
+static const uint64_t TENSTBL[17] = {
+    /* 10^0  */  0x4110000000000000ULL,
+    /* 10^1  */  0x41A0000000000000ULL,
+    /* 10^2  */  0x4264000000000000ULL,
+    /* 10^3  */  0x433E800000000000ULL,
+    /* 10^4  */  0x4427100000000000ULL,
+    /* 10^5  */  0x45186A0000000000ULL,
+    /* 10^6  */  0x45F4240000000000ULL,
+    /* 10^7  */  0x4698968000000000ULL,
+    /* 10^8  */  0x475F5E1000000000ULL,
+    /* 10^9  */  0x483B9ACA00000000ULL,
+    /* 10^10 */  0x492540BE40000000ULL,
+    /* 10^20 */  0x5156BC75E2D63100ULL,
+    /* 10^30 */  0x59C9F2C9CD04674EULL,
+    /* 10^40 */  0x621D6329F1C35CA4ULL,
+    /* 10^50 */  0x6A446C3B15F99265ULL,
+    /* 10^60 */  0x729F4F2726179A1EULL,
+    /* 10^70 */  0x7B172EBAD6DDC73BULL,
+};
+
+// ibm_dp_to_string — direct IBM hex DP -> decimal string
+//
+// Based on MONITOR.ASM/XXDTOC.bal
+//
+//   1. Iteratively scale |value| by powers of 10 until
+//      the characteristic field equals 0x4E (= 78), at which point
+//      the 56-bit mantissa is the leading 16-17 decimal digits of the
+//      original value as an integer.  Each iteration's log10 step is
+//      computed the same way the assembly did:
+//          (|char-78| * 19728 + 8192) >> 14
+//      ≈ |char-78| * log10(16), rounded.
+//   2. Format the mantissa as a 17-digit string.  XXDTOC's WINT
+//      assembly is just a packed-decimal representation of this
+//      integer; the leading digit may be a real digit (17-digit
+//      mantissa) or an implicit leading '0' (16-digit mantissa).
+//      Take sig_digits chars starting from the first non-zero, and
+//      pad on the right with '0' if pad_to_digits > sig_digits.
+//   3. The decimal exponent for the displayed "D.DDD...DD" is
+//      E10 + 16 - (leading zeros skipped), matching XXDTOC's
+//      `AH R1,H15` (and conditional `AH R1,ONE` for 17-digit case).
+//
+void
+ibm_dp_to_string(uint32_t msw, uint32_t lsw, int sig_digits,
+                 int pad_to_digits, char *out, size_t out_len)
+{
+    assert(out != NULL && out_len > 0);
+    assert(sig_digits > 0 && sig_digits <= 30);
+    assert(pad_to_digits >= sig_digits && pad_to_digits <= 30);
+
+    if (((msw & 0x7FFFFFFFu) | lsw) == 0) {
+        snprintf(out, out_len, "0.0");
+        return;
+    }
+
+    int sign = (msw >> 31) & 1u;
+    uint64_t value = ((uint64_t)(msw & 0x7FFFFFFFu) << 32) | lsw; // unsigned
+
+    int E10 = 0;
+
+    for (int iter = 0; iter < 8; iter++) {
+        int char_field = (int)((value >> 56) & IBM_DP_EXP_MAX);
+        int diff = char_field - 78;
+        if (diff == 0) break;
+
+        int abs_diff = diff < 0 ? -diff : diff;
+        int log10_diff = ((abs_diff * 19728) + 8192) >> 14;
+        if (log10_diff > 78) log10_diff = 78;
+        if (log10_diff <= 0) break;
+
+        int ones = log10_diff % 10;
+        int tens = log10_diff / 10;
+
+        if (ones > 0) {
+            uint64_t f = TENSTBL[ones];
+            value = (diff > 0) ? ibm_dp_div(value, f)
+                               : ibm_dp_mul(value, f);
+        }
+        if (tens > 0) {
+            uint64_t f = TENSTBL[9 + tens];
+            value = (diff > 0) ? ibm_dp_div(value, f)
+                               : ibm_dp_mul(value, f);
+        }
+
+        if (diff > 0) E10 += log10_diff;
+        else          E10 -= log10_diff;
+    }
+
+    uint64_t mantissa = value & IBM_DP_MANT_MASK;
+
+    // Render mantissa as 17 chars (leading zero if 16-digit)
+    char m[20];
+    snprintf(m, sizeof(m), "%017llu", (unsigned long long)mantissa);
+
+    // Skip leading zeros to find the first significant digit.
+    int start = 0;
+    while (start < 16 && m[start] == '0') start++;
+
+    int E10_display = E10 + (16 - start);
+
+    char display[40];
+    int avail = 17 - start;
+    int take  = sig_digits < avail ? sig_digits : avail;
+    int pos = 0;
+    for (int i = 0; i < take; i++) display[pos++] = m[start + i];
+    for (int i = take; i < pad_to_digits; i++) display[pos++] = '0';
+    display[pos] = '\0';
+
+    int abs_E10 = E10_display < 0 ? -E10_display : E10_display;
+    snprintf(out, out_len, "%s%c.%sE%c%02d", sign ? "-" : "",
+                                             display[0],
+                                             display + 1,
+                                             E10_display < 0 ? '-' : '+',
+                                             abs_E10);
 }
 
