@@ -22,21 +22,21 @@ Prepare (or clear) a HAL/S "inclusion library" for usage by the compiler:
     
 The available options are:
     
-    --help      Show this message.
-    --bfs       Prepare the library called INCLIBB, for use with the
-                BFS version of the HAL/S compiler.  (The default is to 
-                prepare INCLIB, for use with the PASS HAL/S compiler.)
-    --clear     Clear the selected library, if it already exists.
-    --include=D Specifies a directory name D whose HAL/S files are suitable 
-                for use with the compiler directive "D INCLUDE name".  These
-                files are added directly to the inclusion library.  For Space 
-                Shuttle PASS, the suitable option would be --include=INCL80, 
-                however this command-line option can be used multiple times for 
-                selecting
-                multiple directories to be processed.
-    --srn       Remove the card-sequence number in columns 73-80 of included
-                files.  Only the files indicated by --include are affected;
-                other already existing entries in the library are unchanged.
+    --help              Show this message.
+    --bfs               Prepare the library called INCLIBB, for use with the
+                        BFS version of the HAL/S compiler.  (The default is to 
+                        prepare INCLIB, for use with the PASS HAL/S compiler.)
+    --clear             Clear the selected library, if it already exists.
+    --include=D         Specifies a directory name D whose HAL/S files are suitable 
+                        for use with the compiler directive "D INCLUDE name".  These
+                        files are added directly to the inclusion library.  For Space 
+                        Shuttle PASS, the suitable option would be --include=INCL80, 
+                        however this command-line option can be used multiple times for 
+                        selecting
+                        multiple directories to be processed.
+    --srn               Remove the card-sequence number in columns 73-80 of included
+                        files.  Only the files indicated by --include are affected;
+                        other already existing entries in the library are unchanged.
 '''
 clear = False
 inclusionDirectories = []
@@ -47,6 +47,12 @@ for parm in sys.argv[1:]:
     if parm == "--help":
         print(helpMessage)
         sys.exit(0)
+    elif parm == "--preprocess":
+        # This option was for dealing with include-files having compiler 
+        # directives "D INCLUDE TEMPLATE ...", but there are no such files.
+        # Keep accepting (and ignoring) it, since some scripts may not have
+        # removed it yet.
+        pass
     elif parm == "--clear":
         clear = True
     elif parm == "--bfs":
@@ -103,15 +109,21 @@ for dir in inclusionDirectories:
         # Read the entire contents of the file:
         with open(file, "r") as f:
             lines = f.readlines()
-        for i in range(len(lines)):
+        lineCount = len(lines)
+        i = 0
+        while i < lineCount:
             lines[i] = lines[i].rstrip("\r\n")[:srn].ljust(80)
             if False:
-                # Comment out every "D INCLUDE TEMPLATE ..." line.
+                # Comment out "D INCLUDE TEMPLATE ..." line.
                 if lines[i][:1] == "D":
                     fields = lines[i].split()
                     if fields[:2] == ["DINCLUDE", "TEMPLATE"] or \
                             fields[:3] == ["D", "INCLUDE", "TEMPLATE"]:
-                        lines[i] = "C" + lines[i][:71] + lines[i][72:]
+                        lines.insert(i, "C/ Removed by preprocessor")
+                        i += 1
+                        lineCount += 1
+                        lines[i] = "C" + lines[i][1:]
+            i += 1
         # What we do with the contents of the file differs for HAL_S_FC.py 
         # vs HALSFC.  For HAL_S_FC.py, we simply stash the entire contents into
         # `jsonLibrary`, which is a dictionary that will eventually be written

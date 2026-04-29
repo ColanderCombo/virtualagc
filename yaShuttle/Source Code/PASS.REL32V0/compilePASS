@@ -33,10 +33,18 @@ import subprocess
 import sys
 import shutil
 import os
+import stat
 from datetime import datetime
 from pathlib import Path
+import tempfile
+import shutil
 
-autoX1 = False
+tmpDir = None
+def outtaHere(n):
+    if tmpDir != None:
+        shutil.rmtree(tmpDir)
+    os._exit(n)
+
 helpMsg = '''
 Compiles HAL/S source-code files for the PASS version stored in the current 
 working directory's sub-hierarchy (i.e., subdirectories like APPLSRC/, SSSRC/,
@@ -47,6 +55,13 @@ and INCL80/).  Usage:
 The only OPTIONS available are:
 
     --help          Show this message.
+    --preprocess    Preprocess the HAL/S source code prior to compilation to
+                    help eliminate DI11 and PM2 compile-time errors.
+    --ops=C         (Default G16.)  Select a GPC configuration.  The choices
+                    are G16, G2, G3, G8, G9, S2, P9, and SSW.  These correspond
+                    to the various operational modes of PASS, and each would
+                    represent a different memory image.  [Ignore this parameter
+                    and don't use it for now.]
     --auto-x1       Automatically disable OPT and retry for ZO3 errors.
     --skip-to=F     Skip all source-code files prior to F.  F must be the 
                     relative path of a file, such as APPLSRC/RDDDDI.hal.
@@ -101,12 +116,22 @@ see the messages more-or-less at the time they're emitted, rather than having
 the operating system buffer them in large blocks and only emitting them when 
 full blocks become available.
 '''
+autoX1 = False
+preprocess = False
 skipTo = None
 rsbTrace = ""
+ops = "G16"
 for parm in sys.argv[1:]:
     if parm == "--help":
         print(helpMsg)
-        sys.exit(0)
+        outtaHere(0)
+    elif parm == "--preprocess":
+        preprocess = True
+    elif parm.startswith("--ops="):
+        ops = parm[6:]
+        if ops not in ["G16", "G2", "G3", "G8", "G9", "S2", "P9", "SSW"]:
+            print("Illegal --ops setting.")
+            outtaHere(1)
     elif parm.startswith("--skip-to="):
         skipTo = parm[10:]
     elif parm.startswith("--rsb-trace="):
@@ -116,14 +141,17 @@ for parm in sys.argv[1:]:
     else:
         print("Unrecognized parameter:", parm)
         print(helpMsg)
-        sys.exit(1)
+        outtaHere(1)
 
 if not Path("SSSRC").is_dir():
     print("SSSRC/ not found.")
-    sys.exit(1)
+    outtaHere(1)
 if not Path("APPLSRC").is_dir():
     print("APPLSRC/ not found.")
-    sys.exit(1)
+    outtaHere(1)
+if preprocess:
+    tmpDir = tempfile.TemporaryDirectory(delete=False).name
+    print("Using temporary directory for preprocessor", tmpDir)
 
 def descore(s):
     return s.strip().replace("_", "")[:6]
@@ -146,23 +174,28 @@ Regarding the compiler parameters:
                 workarounds, though much more expensive to implement.  So far,
                 this approach agrees with MAFGEN.
 '''
+defaultR = "C"
 def getParms(template):
-    parmBase = "LIST,SRN,TEMPLATE,NOLFXI,REGOPT,CARDTYPE="
+    # Note: LITSTRINGS increased from default (2000) for 
+    # OI301700/APPLSRC/CGBIH2.hal (uses 2646).
+    modern = "UDXCVMWC"
+    contemporary = "UCXDVCWM"
+    parmBase = "LIST,SRN,TEMPLATE,NOLFXI,REGOPT,LITSTRINGS=3000,CARDTYPE="
     cardtypesBySourceFile = {
-        "default": "FCRM",
-        "CS2INI" : "ACFCRM",
-        "CS4INI" : "ACFCRM",
-        "CPTOSV" : "ACBDFCRM",
-        "CPUSLS" : "ACBDFCRM",
-        "GKDASC": "AMOCNCRMFDGCHC",
-        "GKRORB": "ACOMNCRCFCGDHC",
-        "GKGMNV": "ACOCNMRMFCGCHD"
+        "default": f"FCR{defaultR}",
+        "CS2INI" : f"ACFCR{defaultR}",
+        "CS4INI" : f"ACFCR{defaultR}",
+        "CPTOSV" : f"ACBDFCR{defaultR}",
+        "CPUSLS" : f"ACBDFCR{defaultR}",
+        "GKDASC": f"AMOCNCRMFDGCHC",
+        "GKRORB": f"ACOMNCRCFCGDHC",
+        "GKGMNV": f"ACOCNMRMFCGCHD"
         }
     stem = template["stem"]
     if stem in cardtypesBySourceFile:
-        parms = parmBase + cardtypesBySourceFile[stem]
+        parms = parmBase + cardtypesBySourceFile[stem] + modern
     else:
-        parms = parmBase + cardtypesBySourceFile["default"]
+        parms = parmBase + cardtypesBySourceFile["default"] + modern
     return parms
 
 # Return True if there's a delayable error.
@@ -174,7 +207,7 @@ def checkDelayableErrors(template, nameOfPass, passRptFilename, candidateErrorLi
         f = open(passRptFilename, "r")
         for line in f:
             for errorType in candidateErrorList:
-                if errorType in line:
+                if "***** " + errorType in line:
                     stem = template["stem"]
                     if stem not in errorsSkipped:
                         errorsSkipped.add(stem)
@@ -201,7 +234,8 @@ except:
 def compile(template):
     global compilationCount, skipping, rsbTrace
     compilationCount += 1
-    filename = template["filename"]
+    rawFilename = template["filename"]
+    filename = rawFilename[:]
     parms = getParms(template)
     fields = filename.split("/")
     if len(fields) == 2:
@@ -211,7 +245,7 @@ def compile(template):
         subfolder = defaultSubdirectory
     else:
         print(f"Specified source-code filename {subfolder}/{filename} is illegal.")
-        os._exit(1)
+        outtaHere(1)
     if skipping:
         if subfolder + "/" + filename == skipTo:
             skipping = False
@@ -219,6 +253,19 @@ def compile(template):
             #print("%3d: Skipping past %s/%s." % \
             #  (compilationCount, subfolder, filename))
             return None
+    if preprocess:
+        subfolder = tmpDir
+        filename = template["stem"] + ".hal"
+        command = ["preprocessHALSFC", f"--in={rawFilename}", f"--out={subfolder}/{filename}"]
+        try:
+            result = subprocess.run(command, capture_output = True, text = True, check = True)
+        except subprocess.CalledProcessError as e:
+            print(f"The preprocessor attempted to create {subfolder}/{filename}.")
+            if not Path(subfolder).is_dir():
+                print("There is no such directory.")
+            print(f"Preprocessor failed with exit code {e.returncode}.")
+            print("STDERR:", e.stderr)
+            outtaHere(1)
     result = None
     firstTry = True
     retryX1 = False
@@ -227,12 +274,12 @@ def compile(template):
         try:
             if retryX1:
                 parmsFull = parms + ",X1"
-                print("      Recompiling %s/%s with X1 due to OPT ZO3 error" % \
-                      (subfolder, filename))
+                print("      Recompiling %s with X1 due to OPT ZO3 error" % \
+                      rawFilename)
             else:
                 parmsFull = parms
-                print("%4d: Compiling %s/%s" % \
-                      (compilationCount, subfolder, filename))
+                print("%4d: Compiling %s" % \
+                      (compilationCount, rawFilename))
             command = ["HALSFC", f"{subfolder}/{filename}", "--test", "--force",
                  f"--parms={parmsFull}", "-o", f"objects/{template['stem']}.obj"]
             if rsbTrace != "":
@@ -244,21 +291,39 @@ def compile(template):
                 if autoX1 and not retryX1:
                     retryX1 = True
                     continue
-                print(f"      ZO3 error in OPT, compilation skipped.")
+                print(f"      ZO3 error in OPT, compilation of {rawFilename} skipped.")
                 rsbTrace = ""
                 return False
             elif checkDelayableErrors(template, "PASS1", "pass1.rpt", ["PM2"]):
-                print(f"      PM2 error in PASS1, compilation skipped.")
+                print(f"      PM2 error in PASS1, compilation of {rawFilename} skipped.")
                 rsbTrace = ""
                 return False
             elif checkDelayableErrors(template, "PASS1", "pass1.rpt", ["DI11"]):
-                print(f"      DI11 error in PASS1, compilation skipped.")
+                print(f"      DI11 error in PASS1, compilation of {rawFilename} skipped.")
+                rsbTrace = ""
+                return False
+            elif checkDelayableErrors(template, "PASS1", "pass1.rpt", ["XI3"]):
+                print(f"      XI3 error in PASS1, compilation of {rawFilename} skipped.")
                 rsbTrace = ""
                 return False
             print(f"Failed with exit code {e.returncode}.")
             print("STDOUT:", e.stdout)
             print("STDERR:", e.stderr)
-            os._exit(1)
+            if preprocess:
+                extra = "--preprocess"
+            else:
+                extra = ""
+            resumeCommand = '''#!/bin/bash
+prepareINCLIB %s --clear --include=INCL80
+unbuffer compilePASS %s --skip-to=%s  2>&1 | tee -a compilePASS.log
+''' % (extra, extra, template["filename"])
+            resumeFilename = "resumeCompilePASS"
+            f = open(resumeFilename, "w")
+            f.write(resumeCommand)
+            f.close()
+            os.chmod(resumeFilename, os.stat(resumeFilename).st_mode | stat.S_IEXEC)
+            print("Note:  Created script", resumeFilename)
+            outtaHere(1)
     rsbTrace = ""
     return True
 
@@ -474,5 +539,7 @@ else:
         print("%3d: Did not compile %s." % (compilationCount, filename))
 
 print(f"{datetime.now()}: Done.")
+
+outtaHere(0)
 
 
