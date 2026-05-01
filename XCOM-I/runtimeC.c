@@ -2831,8 +2831,12 @@ MONITOR10(descriptor_t *fpstring) {
     abend("Needed CALL MONITOR(5) prior to CALL MONITOR(10)");
   address = dwAddress;
   s = descriptorToAscii(fpstring);
-  FR[0] = atof(s);
-  toFloatIBM(&msw, &lsw, FR[0]);
+  // Convert the literal directly to IBM hex DP using a port
+  // of MONITOR.ASM/XXXTOD.bal
+  // FR[0] = atof(s);
+  ibm_dp_from_string(s, &msw, &lsw);
+  // FR[0] gets the IEEE view of the parsed hex:
+  FR[0] = ibm_dp_to_double(msw, lsw);
   putFIXED(address, msw);
   putFIXED(address + 4, lsw);
   return 0;
@@ -2846,15 +2850,11 @@ MONITOR11(void) {
 
 descriptor_t *
 MONITOR12(uint32_t precision) {
-  double value;
-  char *fpFormat;
   sbuf_t s;
-  char *ss;
   uint32_t address;
   if (dwAddress == -1)
     abend("CALL MONITOR(5) must precede CALL MONITOR(12)");
   address = dwAddress;
-  value = fromFloatIBM(getFIXED(address), getFIXED(address + 4));
   /*
    * The "standard" HAL format for floating-point numbers is described on
    * p. 8-3 of "Programming in HAL/S", though unfortunately the number of
@@ -2869,19 +2869,12 @@ MONITOR12(uint32_t precision) {
    * exactly 1 digit (non-zero) to the left of the decimal point.  Therefore,
    * for SP and DP, it would be reasonable to have 6 and 15 digits to the
    * right of the decimal point respectively.
+   *
+   * Render directly from the IBM-DP bytes via a port of MONITOR.ASM/XXDTOC.bal
+   * The leading-' '-or-'-' and  " 0.0" case are handled in the call:
    */
-  if (value == 0.0)
-    return cToDescriptor(NULL, " 0.0");
-  if (precision == 0)
-    fpFormat = "%+2.6e";
-  else
-    fpFormat = "%+2.15e";
-  sprintf(s, fpFormat, value);
-  if (s[0] == '+')
-    s[0] = ' ';
-  ss = strstr(s, "e");
-  if (ss != NULL)
-    *ss = 'E';
+  ibm_dp_to_hal_string(getFIXED(address), getFIXED(address + 4),
+                       precision, s, sizeof(s));
   return asciiToDescriptor(s);
 }
 
